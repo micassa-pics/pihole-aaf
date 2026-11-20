@@ -25,11 +25,10 @@ This project provides two independent patches for the Pi-hole v6 web interface. 
 
 ## awesome-a-fyer the queries page
 
-Open **Query Log** from the Pi-hole sidebar. If you also use the DHCP patch, select the eye beside a lease to see that client's queries.
 
 ### Group repeated queries
 
-Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
+On the queries page, at the top you can select **Group** and **Type**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
 
 ![Grouped Recent Queries with the All filter active. The Count column shows the largest groups first.](assets/grouped-query-log.jpg)
 
