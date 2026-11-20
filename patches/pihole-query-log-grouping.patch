@@ -628,6 +628,42 @@ index 9fbcc19..92a13aa 100644
 +  queryAPIURL = getAPIURL(filters);
 +  table.draw();
  }
+diff --git a/scripts/js/utils.js b/scripts/js/utils.js
+index 2b7138e..5976c0b 100644
+--- a/scripts/js/utils.js
++++ b/scripts/js/utils.js
+@@ -856,3 +856,31 @@ globalThis.utils = (function () {
+     base64ToString,
+   };
+ })();
++
++// Both independent patches register their own version on the shared sidebar line.
++$(() => {
++  const memory = document.getElementById("memory");
++  if (!memory) return;
++  let line = document.getElementById("awesome-a-fyer-version");
++  if (!line) {
++    line = document.createElement("div");
++    line.id = "awesome-a-fyer-version";
++    memory.after(line);
++    const check = document.createElement("a");
++    check.target = "_blank";
++    check.rel = "noopener noreferrer";
++    check.title = "Check for newer awesome-a-fyer patches on GitHub Pages";
++    check.setAttribute("aria-label", check.title);
++    check.innerHTML = '<i class="fas fa-sync-alt" aria-hidden="true"></i>';
++    line.append(document.createElement("span"), " ", check);
++  }
++  line.dataset.queries = "1.1.0";
++  const installed = new URLSearchParams(line.dataset);
++  const versions = new Set(installed.values());
++  line.firstElementChild.textContent = versions.size === 1 ? "Patch v" + [...versions][0] :
++    [...installed].map(([key, value]) => key + " v" + value).join(", ");
++  line.firstElementChild.title = [...installed].map(([key, value]) => key + " v" + value).join(", ");
++  line.lastElementChild.href = "https://micassa-pics.github.io/pihole-awesome-a-fyer/check.html#" + installed;
++  const panel = memory.closest(".user-panel");
++  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
++});
 diff --git a/vendor/datatables/queryLog.colReorder.min.js b/vendor/datatables/queryLog.colReorder.min.js
 new file mode 100644
 index 0000000..f0febbc

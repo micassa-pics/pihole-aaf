@@ -82,20 +82,22 @@ In **Expiration**, the outline represents the configured lease time. The fill sh
 
 Drag a column header in either DHCP table to move it. Each table remembers its own layout in your browser. Hostname edits appear under **Save & Apply** as one change, such as **office-printer → studio-printer**.
 
-In active leases, **Expiration** sits beside **Hostname**. **MAC** and **CID** start collapsed. Tap either header label to show or hide that column’s values.
+The collapsed **DHCP Settings** heading shows the current address range. In both tables, **Expiration** sits beside **Hostname**. **MAC** and **CID** start collapsed. Tap either header label to show or hide that column’s values.
 
 The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. An empty chart shows only the horizontal axis.
 
-In this example, the top three devices already have reservations. The bottom three have a **+** button.
+The upper table shows active leases without a reserved IP address. The static table shows configured IP reservations, including offline devices. Both tables have the same columns. A dash under **Expiration** means the reservation has no active lease. Host rules without a fixed IP remain in **Manual Edit Static DHCP Entries**.
 
 
-![Active DHCP leases. The bottom three leases can be added to the static list.](assets/active-dhcp-leases.jpg)
+![Dynamic DHCP leases with the option to add a reservation.](assets/active-dhcp-leases.jpg)
 
-Search or sort static reservations by IP address, hostname, or MAC address. To edit the entries as text, open **Manual Edit Static DHCP Entries**. Pi-hole asks for confirmation when you delete a lease or reservation.
+Search static reservations by IP address, hostname, or MAC address. Select the IP address or hostname heading to sort. To edit the entries as text, open **Manual Edit Static DHCP Entries**. Pi-hole asks for confirmation when you delete a lease or reservation.
 
-![Static DHCP configuration with IP address, hostname, MAC address, and action columns](assets/static-dhcp-reservations.jpg)
+![Static IP reservations with lease details and DNS activity](assets/static-dhcp-reservations.jpg)
 
 
+
+The sidebar shows the installed patch version below **Memory usage**. Select the circular arrow to compare installed versions with the published versions. The checker opens in a new tab.
 
 ## Compatibility
 

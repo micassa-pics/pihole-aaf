@@ -42,7 +42,7 @@ Get the selected patches
    DHCP uses pihole-dhcp-table.patch. It changes settings-dhcp.lp,
    scripts/js/settings-dhcp.js, and scripts/js/footer.js. It adds vendor/datatables/dataTables.colReorder.min.js. Record whether that file existed before installation so undo can restore the original state.
    Query Log uses pihole-query-log-grouping.patch.
-   It changes queries.lp and scripts/js/queries.js. It adds vendor/datatables/queryLog.colReorder.min.js. Record whether that file existed before installation.
+   It changes queries.lp, scripts/js/queries.js, and scripts/js/utils.js. It adds vendor/datatables/queryLog.colReorder.min.js. Record whether that file existed before installation.
    Check the paths in each patch against the web interface directory.
 
 3. Append /contents/patches/<filename>?ref=<commit> to the record's API url.
