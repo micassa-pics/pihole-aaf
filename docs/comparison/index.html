@@ -1,63 +1,7 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DHCP and Query Log comparisons · Pi-hole awesome-a-fyer</title>
-<style>
-:root { color-scheme: light dark; font: 1rem/1.5 system-ui,sans-serif; }
-body { max-width: 72rem; margin: 2rem auto; padding: 0 1rem; }
-h1,h2 { line-height: 1.2; }
-section { margin-block: 2.5rem; }
-figure { margin: 0; }
-figcaption { display: flex; justify-content: space-between; margin-bottom: .375rem; }
-.comparison-container { --position: 50%; position: relative; isolation: isolate; overflow: hidden; }
-.comparison-container img { display: block; width: 100%; height: auto; }
-.image-before { position: absolute; inset: 0; clip-path: inset(0 calc(100% - var(--position)) 0 0); }
-.slider { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; z-index: 2; cursor: ew-resize; touch-action: pan-y; }
-.comparison-container:focus-within { outline: 3px solid Highlight; outline-offset: 3px; }
-.slider-line,.slider-button { position: absolute; left: var(--position); transform: translateX(-50%); pointer-events: none; }
-.slider-line { inset-block: 0; width: 2px; background: white; box-shadow: 0 0 2px black; }
-.slider-button { top: 50%; translate: 0 -50%; border: 2px solid white; border-radius: 50%; background: #18232b; color: white; width: 2rem; line-height: 2rem; text-align: center; }
-</style>
-<main>
-<h1>Pi-hole before and after</h1>
-<p>Drag a divider or focus it and use the arrow keys. Each pair shows the same fictional data.</p>
-<section id="dhcp">
-<h2>DHCP</h2>
-<p>Select + beside an active lease. The patched table opens an editable row marked New above the saved reservations.</p>
-<figure>
-<figcaption><span>Before · Stock Pi-hole</span><span>After · awesome-a-fyer</span></figcaption>
-<div class="comparison-container">
-<img src="dhcp-after.jpg" alt="Patched static reservations with the New row outlined beneath the headings">
-<img class="image-before" src="dhcp-before.jpg" alt="Stock static reservation list with MAC address first">
-<input class="slider" type="range" min="0" max="100" value="50" aria-label="Percentage of stock DHCP screenshot shown" aria-valuetext="50% before">
-<div class="slider-line" aria-hidden="true"></div><div class="slider-button" aria-hidden="true">↔</div>
-</div>
-</figure>
-</section>
-<section id="queries">
-<h2>Query Log</h2>
-<p>Select Group to see how often each client repeats a query. The bars show when the requests occurred.</p>
-<figure>
-<figcaption><span>Before · Stock Pi-hole</span><span>After · awesome-a-fyer</span></figcaption>
-<div class="comparison-container">
-<img src="queries-after.jpg" alt="Grouped Query Log with 24 activity bars and a count for each group">
-<img class="image-before" src="queries-before.jpg" alt="Stock Query Log with a timestamp and response time for each request">
-<input class="slider" type="range" min="0" max="100" value="50" aria-label="Percentage of stock Query Log screenshot shown" aria-valuetext="50% before">
-<div class="slider-line" aria-hidden="true"></div><div class="slider-button" aria-hidden="true">↔</div>
-</div>
-</figure>
-</section>
-<a href="https://github.com/micassa-pics/pihole-awesome-a-fyer">Back to the project</a>
-</main>
-<script>
-for (const slider of document.querySelectorAll(".slider")) {
-  function update() {
-    slider.parentElement.style.setProperty("--position", slider.value + "%");
-    slider.setAttribute("aria-valuetext", slider.value + "% before");
-  }
-  slider.addEventListener("input", update);
-  update();
-}
-</script>
+<title>Pi-hole comparisons</title>
+<script>location.replace("../" + location.hash);</script>
+<a href="../#dhcp">DHCP comparison</a> &middot; <a href="../#queries">Query Log comparison</a>
 </html>

@@ -2,6 +2,12 @@
 
 Two optional patches for the Pi-hole v6 web interface. Install either page or both.
 
+## Install, update, or undo
+
+- Paste the [setup prompt](prompts/manage.md) into your AI assistant.
+- Choose the pages and action. Enter your Pi-hole address and SSH command.
+- After a Pi-hole update, run **Check only** to see if you need to reapply the patches.
+
 <a name="query-log"></a>
 
 ## awesome-a-fyer the queries page
@@ -10,7 +16,9 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Sort by count. See when requests occurred across 24 bars.
 - Switch between **All**, **Blocked**, and **Allowed**. Keep the current client filter.
 
-[Before-and-after slider](https://micassa-pics.github.io/pihole-awesome-a-fyer/comparison/#queries) · [Query Log guide](queries.md)
+[![Query Log before and after. Select to drag the divider.](assets/queries-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
+
+[Drag the slider](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries) · [Query Log guide](queries.md)
 
 <a name="dhcp"></a>
 
@@ -22,10 +30,6 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Edit hostnames and groups in place. Use **Save & Apply** only for deletions.
 - Check lease time remaining and DNS activity for the past 24 hours.
 
-[Before-and-after slider](https://micassa-pics.github.io/pihole-awesome-a-fyer/comparison/#dhcp) · [DHCP guide](dhcp.md)
+[![DHCP before and after. Select to drag the divider.](assets/dhcp-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
 
-## Install, update, or undo
-
-- Paste the [setup prompt](prompts/manage.md) into your AI assistant.
-- Choose the pages and action. Enter your Pi-hole address and SSH command.
-- After a Pi-hole update, run **Check only** to see if you need to reapply the patches.
+[Drag the slider](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp) · [DHCP guide](dhcp.md)
