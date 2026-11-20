@@ -1,5 +1,5 @@
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..930d9a0 100644
+index 9fbcc19..24ba7c9 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
 @@ -23,6 +23,19 @@ const dateformat = "MMM Do YYYY, HH:mm";
@@ -22,7 +22,7 @@ index 9fbcc19..930d9a0 100644
  const filters = [
    "client_ip",
    "client_name",
-@@ -132,16 +145,133 @@ function initDateRangePicker(data) {
+@@ -132,16 +145,163 @@ function initDateRangePicker(data) {
    });
  }
  
@@ -31,15 +31,11 @@ index 9fbcc19..930d9a0 100644
 -    alert("The server took too long to send the data.");
 -  } else {
 -    alert("An unknown error occurred while loading the data.\n" + xhr.responseText);
--  }
 +function requestQueryPage(url, params) {
 +  queryRequest = $.ajax({ url, data: params, dataType: "json" });
 +  return queryRequest;
 +}
- 
--  $("#all-queries_processing").hide();
--  table.clear();
--  table.draw();
++
 +function querySource() {
 +  const url = new URL(queryAPIURL, document.baseURI);
 +  const { upstream } = queryScopes[queryScope];
@@ -56,7 +52,14 @@ index 9fbcc19..930d9a0 100644
 +
 +async function collectQueryRows(request, source, requestId) {
 +  const groups = new Map();
++  const range = { first: Infinity, last: -Infinity };
 +  const rows = [];
++  if (grouped) {
++    // Use the same theme colors as the dashboard Queries over time chart.
++    const scopeClass = ["queries-other", "queries-blocked", "queries-permitted"][queryScope];
++    range.fill = utils.getCSSval(scopeClass, "background-color");
++    range.grid = utils.getCSSval("graphs-grid", "background-color");
+   }
 +  let page;
 +  let start = 0;
 +  do {
@@ -67,7 +70,10 @@ index 9fbcc19..930d9a0 100644
 +      order: grouped ? [{ column: 0, dir: "desc" }] : request.order,
 +      cursor: page?.cursor,
 +    });
-+
+ 
+-  $("#all-queries_processing").hide();
+-  table.clear();
+-  table.draw();
 +    if (requestId !== queryRequestId) return;
 +    if (beginningOfTime === null && start === 0) initDateRangePicker(page);
 +
@@ -81,13 +87,17 @@ index 9fbcc19..930d9a0 100644
 +      const { domain, type, client } = query;
 +      const hidden = domain === "hidden" || !client.ip || client.ip === "0.0.0.0";
 +      const id = hidden ? Symbol() : JSON.stringify([String(domain).toLowerCase(), type, client.ip]);
++      const hour = Math.floor(query.time / 3600);
++      range.first = Math.min(range.first, hour);
++      range.last = Math.max(range.last, hour);
 +      const existing = groups.get(id);
 +      if (existing) {
 +        existing.group.count++;
++        existing.group.hours.set(hour, (existing.group.hours.get(hour) || 0) + 1);
 +        existing.group.mixedStatus ||= existing.status !== query.status || existing.cname !== query.cname;
 +        existing.group.mixedDNSSEC ||= existing.dnssec !== query.dnssec;
 +      } else {
-+        groups.set(id, { ...query, group: { count: 1, mixedStatus: false, mixedDNSSEC: false } });
++        groups.set(id, { ...query, group: { count: 1, range, hours: new Map([[hour, 1]]), mixedStatus: false, mixedDNSSEC: false } });
 +      }
 +    }
 +
@@ -95,6 +105,25 @@ index 9fbcc19..930d9a0 100644
 +  } while (page.queries.length > 0 && start < page.recordsFiltered);
 +
 +  return grouped ? [...groups.values()] : rows;
++}
++
++function hourlyQueryChart(group) {
++  const span = group.range.last - group.range.first + 1;
++  let peak = 0;
++  for (const count of group.hours.values()) peak = Math.max(peak, count);
++  const hourLabel = hour => moment.unix(hour * 3600).utc().format("YYYY-MM-DD HH:00 [UTC]");
++  const label = "Queries per hour from " + hourLabel(group.range.first) + " through " +
++    hourLabel(group.range.last) + ". Tallest bar: " + peak + ".";
++  const bars = [];
++  for (const [hour, count] of group.hours) {
++    const x = (hour - group.range.first) * 100 / span;
++    const height = Math.max(1, 28 * count / peak);
++    bars.push('<rect x="' + x + '%" y="' + (28 - height) + '" width="' + (88 / span) +
++      '%" height="' + height + '"><title>' + hourLabel(hour) + ": " + count + '</title></rect>');
++  }
++  return '<svg class="query-hour-chart" width="108" height="28" role="img" aria-label="' + label +
++    '" fill="' + group.range.fill + '"><title>' + label + '</title>' +
++    '<path d="M0 27.5 H108" stroke="' + group.range.grid + '"/>' + bars.join("") + '</svg>';
 +}
 +
 +function sortQueryGroups(rows, order) {
@@ -165,7 +194,7 @@ index 9fbcc19..930d9a0 100644
  }
  
  function parseQueryStatus(data) {
-@@ -214,6 +344,7 @@ function parseQueryStatus(data) {
+@@ -214,6 +374,7 @@ function parseQueryStatus(data) {
        buttontext = "";
        blocked = true;
        break;
@@ -173,7 +202,7 @@ index 9fbcc19..930d9a0 100644
      case "QUERY_EXTERNAL_BLOCKED_EDE15":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -274,6 +405,7 @@ function parseQueryStatus(data) {
+@@ -274,6 +435,7 @@ function parseQueryStatus(data) {
        buttontext =
          '<button type="button" class="btn btn-default btn-sm text-red btn-blacklist"><i class="fa fa-ban"></i> Deny</button>';
        break;
@@ -181,7 +210,7 @@ index 9fbcc19..930d9a0 100644
      case "SPECIAL_DOMAIN":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -446,7 +578,7 @@ function formatInfo(data) {
+@@ -446,7 +608,7 @@ function formatInfo(data) {
    return (
      '<div class="row">' +
      divStart +
@@ -190,7 +219,7 @@ index 9fbcc19..930d9a0 100644
      moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
      "</div>" +
      clientInfo +
-@@ -462,45 +594,16 @@ function formatInfo(data) {
+@@ -462,45 +624,16 @@ function formatInfo(data) {
    );
  }
  
@@ -245,7 +274,7 @@ index 9fbcc19..930d9a0 100644
  }
  
  function parseFilters() {
-@@ -525,7 +628,7 @@ function getAPIURL(filters) {
+@@ -525,7 +658,7 @@ function getAPIURL(filters) {
    // up the database lookups notably on slow devices. The API accepts timestamps
    // in seconds since epoch
    if (from > beginningOfTime) apiurl += "&from=" + from;
@@ -254,7 +283,7 @@ index 9fbcc19..930d9a0 100644
  
    if ($("#disk").prop("checked")) apiurl += "&disk=true";
  
-@@ -554,7 +657,9 @@ $(() => {
+@@ -554,7 +687,9 @@ $(() => {
    const GETDict = utils.parseQueryString();
  
    for (const [sel, element] of Object.entries(filters)) {
@@ -265,7 +294,7 @@ index 9fbcc19..930d9a0 100644
        width: "100%",
        tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
        placeholder: "Select...",
-@@ -562,8 +667,8 @@ $(() => {
+@@ -562,8 +697,8 @@ $(() => {
      });
    }
  
@@ -276,7 +305,7 @@ index 9fbcc19..930d9a0 100644
  
    if ("from" in GETDict) {
      from = Number(GETDict.from);
-@@ -574,29 +679,7 @@ $(() => {
+@@ -574,29 +709,7 @@ $(() => {
    }
  
    table = $("#all-queries").DataTable({
@@ -307,7 +336,18 @@ index 9fbcc19..930d9a0 100644
      serverSide: true,
      dom:
        "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
-@@ -620,10 +703,17 @@ $(() => {
+@@ -609,8 +722,9 @@ $(() => {
+       {
+         data: "time",
+         width: "10%",
+-        render(data, type) {
++        render(data, type, row) {
+           if (type === "display") {
++            if (row.group) return hourlyQueryChart(row.group);
+             return moment.unix(data).format("Y-MM-DD [<br class='hidden-lg'>]HH:mm:ss z");
+           }
+ 
+@@ -620,10 +734,17 @@ $(() => {
        },
        { data: "status", width: "1%", searchable: false },
        { data: "type", width: "1%", searchable: false },
@@ -328,7 +368,7 @@ index 9fbcc19..930d9a0 100644
      ],
      lengthMenu: [
        [10, 25, 50, 100, 500, 1000],
-@@ -632,7 +722,7 @@ $(() => {
+@@ -632,7 +753,7 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -337,7 +377,7 @@ index 9fbcc19..930d9a0 100644
      },
      stateLoadCallback() {
        const state = utils.stateLoadCallback("query_log_table");
-@@ -642,8 +732,11 @@ $(() => {
+@@ -642,8 +763,11 @@ $(() => {
      },
      rowCallback(row, data) {
        const querystatus = parseQueryStatus(data);
@@ -350,7 +390,7 @@ index 9fbcc19..930d9a0 100644
          $("td:eq(1)", row).html(
            "<i class='fa fa-fw " +
              querystatus.icon +
-@@ -658,14 +751,14 @@ $(() => {
+@@ -658,14 +782,14 @@ $(() => {
        }
  
        // Define row background color
@@ -367,7 +407,7 @@ index 9fbcc19..930d9a0 100644
          const dnssec = parseDNSSEC(data);
          dnssecIcon =
            '<i class="mr-2 fa fa-fw ' +
-@@ -680,10 +773,9 @@ $(() => {
+@@ -680,10 +804,9 @@ $(() => {
        // Escape HTML in domain
        domain = dnssecIcon + utils.escapeHtml(domain);
  
@@ -380,7 +420,7 @@ index 9fbcc19..930d9a0 100644
        } else {
          $("td:eq(3)", row).html(domain);
        }
-@@ -696,14 +788,17 @@ $(() => {
+@@ -696,14 +819,17 @@ $(() => {
        }
  
        // Show X-icon instead of reply time if no reply was received
@@ -400,7 +440,7 @@ index 9fbcc19..930d9a0 100644
      initComplete() {
        this.api()
          .columns()
-@@ -718,11 +813,12 @@ $(() => {
+@@ -718,11 +844,12 @@ $(() => {
            // Replace footer text with input field for searchable columns
            const input = document.createElement("input");
            input.placeholder = this.footer().textContent;
@@ -415,7 +455,7 @@ index 9fbcc19..930d9a0 100644
                this.search(input.value).draw();
              }
            });
-@@ -760,6 +856,8 @@ $(() => {
+@@ -760,6 +887,8 @@ $(() => {
        return;
      }
  
@@ -424,7 +464,7 @@ index 9fbcc19..930d9a0 100644
      if (row.child.isShown()) {
        // This row is already open - close it
        row.child.hide();
-@@ -771,31 +869,65 @@ $(() => {
+@@ -771,31 +900,65 @@ $(() => {
      }
    });
  
