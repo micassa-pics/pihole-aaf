@@ -8,6 +8,8 @@ Open the install page, copy the full prompt, and paste it into your LLM. It asks
 
 ## DHCP
 
+![DHCP Settings in Expert mode with all five sections collapsed](assets/dhcp-sections-collapsed.png)
+
 - Open the page in Expert mode. Toggle each settings or lease section by its heading.
 - Search, sort, and page through static reservations by IP address, hostname, or MAC address.
 - Use **+** beside an eligible active lease to open an editable reservation draft. **Confirm** stages it for **Save & Apply**. The eye opens queries for that client.
