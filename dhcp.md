@@ -24,7 +24,7 @@ In **Expiration**, the outline represents the configured lease time. The fill sh
 
 Drag a column header in either DHCP table to move it. Each table remembers its own layout in your browser.
 
-The collapsed **DHCP Settings** heading shows the current address range. In both tables, **Expiration** sits beside **Hostname**. **MAC** and **CID** start collapsed. Tap either header label to show or hide that column in both tables. Corresponding columns have the same width.
+The collapsed **DHCP Settings** heading shows the current address range. In both tables, **Expiration** sits beside **Hostname**. **MAC** and **CID** start collapsed. The screenshots keep both headings visible and leave the cells below them empty. Tap either header label to show or hide that column in both tables. Corresponding columns have the same width.
 
 The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. An empty chart shows only the horizontal axis.
 

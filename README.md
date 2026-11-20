@@ -17,7 +17,7 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Switch between **All**, **Blocked**, and **Allowed**. Keep the current client filter.
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
-[![Query Log before and after.](assets/queries-centered.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
+[![Grouped Query Log with counts and activity charts. Open the interactive comparison.](docs/comparison/queries-after.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
 
 [Query Log guide](queries.md)
 
@@ -29,9 +29,10 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - See active leases and static reservations in separate tables. Collapse any section.
 - Select **+** beside a lease. Edit the **New** row at the top of the static table. Select the checkmark to save.
 - Edit hostnames and groups in place. Use **Save & Apply** only for deletions.
+- Tap **MAC** or **CID** to show addresses or client IDs. The screenshots show both columns collapsed, with empty cells.
 - Check lease time remaining and DNS activity for the past 24 hours.
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
-[![DHCP before and after.](assets/dhcp-centered.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
+[![Patched DHCP table with a new reservation and collapsed MAC and CID columns. Open the interactive comparison.](docs/comparison/dhcp-after.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
 
 [DHCP guide](dhcp.md)
