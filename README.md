@@ -15,11 +15,13 @@ Open the install page, copy the full prompt, and paste it into your LLM. It asks
 - Use **+** beside an eligible active lease to open an editable reservation draft. **Confirm** stages it for **Save & Apply**. The eye opens queries for that client.
 - Confirm lease deletions and expand **Manual Edit Static DHCP Entries** for advanced configurations.
 
-![Example active DHCP leases table showing IP addresses, hostnames, expiration times, and per-client actions](assets/active-dhcp-leases.png)
+![Six active DHCP leases. The bottom three have a plus button between the trash and eye icons.](assets/active-dhcp-leases.png)
+
+The top three devices already have static reservations. For any of the bottom three, select **+** to review and edit a new reservation.
 
 ![Static DHCP reservations with IP address, hostname, MAC address, and controls for adding or deleting a reservation](assets/static-dhcp-reservations.png)
 
-*Both examples use the same fictional devices and network addresses.*
+*Both tables use fictional device names and network addresses.*
 
 ## Query Log
 
