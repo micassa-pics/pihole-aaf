@@ -26,7 +26,7 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 ## awesome-a-fyer the dhcp page
 
 - Select the eye beside a device to open its Query Log.
-- See active leases and static reservations in separate tables. Collapse any section.
+- Active leases and static reservations are now grouped in separate tables. Collapse any section.
 - Select **+** beside a lease. Edit the **New** row at the top of the static table. Select the checkmark to save.
 - Edit hostnames and groups in place. Use **Save & Apply** only for deletions.
 - Tap **MAC** or **CID** to show addresses or client IDs. The screenshots show both columns collapsed, with empty cells.
