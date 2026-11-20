@@ -13,9 +13,9 @@ h1 { font-size: 1.5rem; } li { margin-block: .6rem; }
 <p id="status"></p>
 <a href="https://github.com/micassa-pics/pihole-awesome-a-fyer/blob/main/prompts/manage.md">Open the update prompt</a>
 <script>
-const latest = "1.1.5";
+const latest = "1.1.6";
 const installed = new URLSearchParams(location.hash.slice(1));
-const pages = [["dhcp", "DHCP"], ["queries", "Query Log"]].filter(([key]) => installed.has(key));
+const pages = [["dashboard", "Dashboard"], ["dhcp", "DHCP"], ["queries", "Query Log"]].filter(([key]) => installed.has(key));
 const older = pages.filter(([key]) => {
   const value = installed.get(key);
   if (!/^\d+\.\d+\.\d+$/.test(value)) return true;

@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..be4509e 100644
+index af99c0a..888babf 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,11 +83,11 @@ index af99c0a..be4509e 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.5";
++  const version = "1.1.6";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
-+  line.firstElementChild.title = "Installed pages: " + [...installed.keys()].map(key => key === "dhcp" ? "DHCP" : "Query Log").join(", ");
++  line.firstElementChild.title = "Installed pages: " + [...installed.keys()].map(key => ({ dhcp: "DHCP", queries: "Query Log", dashboard: "Dashboard" })[key]).join(", ");
 +  line.lastElementChild.href = "https://micassa-pics.github.io/pihole-awesome-a-fyer/check.html#" + installed;
 +  const panel = memory.closest(".user-panel");
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";

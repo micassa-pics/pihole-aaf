@@ -3,7 +3,7 @@
 Copy the entire block into your AI assistant. Choose **Check only** to compare versions without changing Pi-hole.
 
 ```text
-First ask me which Pi-hole page I want: DHCP, Query Log, or both.
+First ask me which Pi-hole pages I want: Dashboard, DHCP, Query Log, or any combination.
 Then ask which action I want: Check only, Install/update, or Undo.
 Use any choice I already gave you. Wait for both choices before you
 download a patch or connect to a device. Work only on the selected pages.
@@ -39,6 +39,7 @@ Get the selected patches
    Use that commit throughout this run.
 
 2. Choose the patch file for each selected page.
+   Dashboard uses pihole-dashboard.patch. It changes index.lp, scripts/js/index.js, and scripts/lua/sidebar.lp.
    DHCP uses pihole-dhcp-table.patch. It changes settings-dhcp.lp,
    scripts/js/settings-dhcp.js, and scripts/js/footer.js. It adds vendor/datatables/dataTables.colReorder.min.js. Record whether that file existed before installation so undo can restore the original state.
    Query Log uses pihole-query-log-grouping.patch.
@@ -126,6 +127,8 @@ Check the result
 Open my Admin URL in a fresh browser session. Let me sign in locally.
 Check only the selected pages. Use read-only checks. Cancel any test
 drafts or delete prompts.
+
+- Dashboard install/update. Collapse and expand each heading. Check that the domain totals and both client summaries appear on the right when collapsed.
 
 - DHCP install/update. Check Expert mode and the collapsible headings.
   Test search and sorting in the static table. Collapse the static section.

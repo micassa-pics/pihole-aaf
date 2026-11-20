@@ -2,13 +2,19 @@
 
 # Pi-hole awesome-a-fyer
 
-Two optional patches for the Pi-hole v6 web interface. Install either page or both.
+Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface. Install any combination.
 
 ## Install, update, or undo
 
 - Paste the [setup prompt](prompts/manage.md) into your AI assistant.
 - Choose the pages and action. Enter your Pi-hole address and SSH command.
 - After a Pi-hole update, run **Check only** to see if you need to reapply the patches.
+
+## awesome-a-fyer the dashboard
+
+- Select a heading to collapse or expand its box.
+- Collapse **Top Permitted Domains** or **Top Blocked Domains** to see the full query count on the right.
+- Collapse either **Top Clients** table to see the client count and responses. These use Pi-hole’s client rankings and query counters for that table.
 
 <a name="query-log"></a>
 

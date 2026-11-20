@@ -1,0 +1,351 @@
+--- a/index.lp
++++ b/index.lp
+@@ -10,13 +10,23 @@
+ indexpage = true
+ mg.include('scripts/lua/header_authenticated.lp','r')
+ ?>
++<style>
++    .dashboard-panel > summary { display: list-item; cursor: pointer; }
++    .dashboard-panel > summary.box-header::before { content: none; }
++    .dashboard-panel.small-box > summary { padding: 10px; font-size: 15px; position: relative; z-index: 1; }
++    .dashboard-panel.small-box[open] > summary { padding-bottom: 0; }
++    .dashboard-panel.small-box > .inner { padding-top: 5px; }
++    .dashboard-panel > summary > .dashboard-count { float: right; font-variant-numeric: tabular-nums; }
++    .dashboard-panel[open] > summary > .dashboard-count,
++    .dashboard-panel:not([open]) > summary > :is(.zoom-info,.zoom-reset) { display: none !important; }
++</style>
+ <!-- Small boxes (Stat box) -->
+ <div class="row">
+     <div class="col-lg-3 col-sm-6">
+         <!-- small box -->
+-        <div class="small-box bg-aqua no-user-select" id="total_queries" title="Total number of queries">
++        <details open class="dashboard-panel small-box bg-aqua no-user-select" id="total_queries" title="Total number of queries">
++            <summary>Total Queries<span class="dashboard-count" data-stat="dns_queries"></span></summary>
+             <div class="inner">
+-                <p>Total Queries</p>
+                 <h3 class="statistic"><span id="dns_queries">---</span></h3>
+             </div>
+             <div class="icon">
+@@ -25,14 +35,14 @@
+             <a href="network" class="small-box-footer" id="total_clients">
+                 <span id="active_clients">-</span> active clients <i class="fa fa-arrow-circle-right"></i>
+             </a>
+-        </div>
++        </details>
+     </div>
+     <!-- ./col -->
+     <div class="col-lg-3 col-sm-6">
+         <!-- small box -->
+-        <div class="small-box bg-red no-user-select">
++        <details open class="dashboard-panel small-box bg-red no-user-select">
++            <summary>Queries Blocked<span class="dashboard-count" data-stat="blocked_queries"></span></summary>
+             <div class="inner">
+-                <p>Queries Blocked</p>
+                 <h3 class="statistic"><span id="blocked_queries">---</span></h3>
+             </div>
+             <div class="icon">
+@@ -41,14 +51,14 @@
+             <a href="queries?upstream=blocklist" class="small-box-footer">
+                 List blocked queries <i class="fa fa-arrow-circle-right"></i>
+             </a>
+-        </div>
++        </details>
+     </div>
+     <!-- ./col -->
+     <div class="col-lg-3 col-sm-6">
+         <!-- small box -->
+-        <div class="small-box bg-yellow no-user-select">
++        <details open class="dashboard-panel small-box bg-yellow no-user-select">
++            <summary>Percentage Blocked<span class="dashboard-count" data-stat="percent_blocked"></span></summary>
+             <div class="inner">
+-                <p>Percentage Blocked</p>
+                 <h3 class="statistic"><span id="percent_blocked">---</span></h3>
+             </div>
+             <div class="icon">
+@@ -57,14 +67,14 @@
+             <a href="queries" class="small-box-footer">
+                 List all queries <i class="fa fa-arrow-circle-right"></i>
+             </a>
+-        </div>
++        </details>
+     </div>
+     <!-- ./col -->
+     <div class="col-lg-3 col-sm-6">
+         <!-- small box -->
+-        <div class="small-box bg-green no-user-select">
++        <details open class="dashboard-panel small-box bg-green no-user-select">
++            <summary>Domains on Lists<span class="dashboard-count" data-stat="gravity_size"></span></summary>
+             <div class="inner">
+-                <p>Domains on Lists</p>
+                 <h3 class="statistic"><span id="gravity_size">---</span></h3>
+             </div>
+             <div class="icon">
+@@ -73,19 +83,19 @@
+             <a href="groups-lists" class="small-box-footer">
+                 Manage lists <i class="fa fa-arrow-circle-right"></i>
+             </a>
+-        </div>
++        </details>
+     </div>
+     <!-- ./col -->
+ </div>
+ 
+ <div class="row">
+     <div class="col-md-12">
+-        <div class="box" id="queries-over-time">
+-            <div class="box-header with-border">
++        <details open class="box dashboard-panel" id="queries-over-time">
++            <summary class="box-header with-border">
+                 <h3 class="box-title">Total queries</h3>
+                 <button class="btn btn-xs btn-default pull-right zoom-reset" data-sel="reset-history"><i class="fas fa-undo"></i>&nbsp;Reset zoom</button>
+                 <span class="pull-right zoom-info" data-toggle="tooltip" title="You can zoom this graph by either holding down the [Ctrl] key and using your mouse wheel or by using the &quot;pinch&quot; multi-touch gesture. You can furthermore click and drag to pan the graph."><i class="fa fa-info-circle"></i></span>
+-            </div>
++            </summary>
+             <div class="box-body">
+                 <div class="chart" style="width: 100%; height: 180px">
+                     <canvas id="queryOverTimeChart"></canvas>
+@@ -95,17 +105,18 @@
+                 <i class="fa fa-sync fa-spin"></i>
+             </div>
+             <!-- /.box-body -->
+-        </div>
++        </details>
+     </div>
+ </div>
+ <div class="row">
+     <div class="col-md-12">
+-        <div class="box" id="clients">
+-            <div class="box-header with-border">
++        <details open class="box dashboard-panel" id="clients">
++            <summary class="box-header with-border">
+                 <h3 class="box-title">Client activity</h3>
++                <span class="dashboard-count" id="clients-count"></span>
+                 <button class="btn btn-xs btn-default pull-right zoom-reset" data-sel="reset-clients"><i class="fas fa-undo"></i>&nbsp;Reset zoom</button>
+                 <span class="pull-right zoom-info" data-toggle="tooltip" title="You can zoom this graph by either holding down the [Ctrl] key and using your mouse wheel or by using the &quot;pinch&quot; multi-touch gesture. You can furthermore click and drag to pan the graph."><i class="fa fa-info-circle"></i></span>
+-            </div>
++            </summary>
+             <div class="box-body">
+                 <div class="chart" style="width: 100%; height: 180px">
+                     <canvas id="clientsChart" class="no-user-select"></canvas>
+@@ -115,16 +126,16 @@
+                 <i class="fa fa-sync fa-spin"></i>
+             </div>
+             <!-- /.box-body -->
+-        </div>
++        </details>
+     </div>
+ </div>
+ 
+ <div class="row">
+     <div class="col-md-6">
+-        <div class="box" id="query-types-pie">
+-            <div class="box-header with-border">
++        <details open class="box dashboard-panel" id="query-types-pie">
++            <summary class="box-header with-border">
+                 <h3 class="box-title">Query Types</h3>
+-            </div>
++            </summary>
+             <div class="box-body">
+                 <div style="width:50%">
+                     <canvas id="queryTypePieChart" width="280" height="280"></canvas>
+@@ -135,13 +146,13 @@
+                 <i class="fa fa-sync fa-spin"></i>
+             </div>
+             <!-- /.box-body -->
+-        </div>
++        </details>
+     </div>
+     <div class="col-md-6">
+-        <div class="box" id="forward-destinations-pie">
+-            <div class="box-header with-border">
++        <details open class="box dashboard-panel" id="forward-destinations-pie">
++            <summary class="box-header with-border">
+                 <h3 class="box-title">Upstream servers</h3>
+-            </div>
++            </summary>
+             <div class="box-body">
+                 <div style="width:50%">
+                     <canvas id="forwardDestinationPieChart" width="280" height="280" class="no-user-select"></canvas>
+@@ -152,17 +163,18 @@
+                 <i class="fa fa-sync fa-spin"></i>
+             </div>
+             <!-- /.box-body -->
+-        </div>
++        </details>
+     </div>
+ </div>
+ 
+ <? if pihole.boxedlayout() then tablelayout = 'col-md-6' else  tablelayout = 'col-md-6 col-lg-6' end ?>
+ <div class="row">
+     <div class="<?=tablelayout?>">
+-        <div class="box" id="domain-frequency">
+-            <div class="box-header with-border">
++        <details open class="box dashboard-panel" id="domain-frequency">
++            <summary class="box-header with-border">
+                 <h3 class="box-title">Top Permitted Domains</h3>
+-            </div>
++                <span class="dashboard-count" id="domain-frequency-count"></span>
++            </summary>
+             <!-- /.box-header -->
+             <div class="box-body">
+                 <div class="table-responsive">
+@@ -183,15 +195,16 @@
+                 <i class="fa fa-sync fa-spin"></i>
+             </div>
+             <!-- /.box-body -->
+-        </div>
++        </details>
+         <!-- /.box -->
+     </div>
+     <!-- /.col -->
+     <div class="<?=tablelayout?>">
+-        <div class="box" id="ad-frequency">
+-            <div class="box-header with-border">
++        <details open class="box dashboard-panel" id="ad-frequency">
++            <summary class="box-header with-border">
+                 <h3 class="box-title">Top Blocked Domains</h3>
+-            </div>
++                <span class="dashboard-count" id="ad-frequency-count"></span>
++            </summary>
+             <!-- /.box-header -->
+             <div class="box-body">
+                 <div class="table-responsive">
+@@ -212,17 +225,18 @@
+                 <i class="fa fa-sync fa-spin"></i>
+             </div>
+             <!-- /.box-body -->
+-        </div>
++        </details>
+         <!-- /.box -->
+     </div>
+ </div>
+ <div class="row">
+     <!-- /.col -->
+     <div class="<?=tablelayout?>">
+-        <div class="box" id="client-frequency">
+-            <div class="box-header with-border">
++        <details open class="box dashboard-panel" id="client-frequency">
++            <summary class="box-header with-border">
+                 <h3 class="box-title">Top Clients (total)</h3>
+-            </div>
++                <span class="dashboard-count" id="client-frequency-count"></span>
++            </summary>
+             <!-- /.box-header -->
+             <div class="box-body">
+                 <div class="table-responsive">
+@@ -243,15 +257,16 @@
+                 <i class="fa fa-sync fa-spin"></i>
+             </div>
+             <!-- /.box-body -->
+-        </div>
++        </details>
+         <!-- /.box -->
+     </div>
+     <!-- /.col -->
+     <div class="<?=tablelayout?>">
+-        <div class="box" id="client-frequency-blocked">
+-            <div class="box-header with-border">
++        <details open class="box dashboard-panel" id="client-frequency-blocked">
++            <summary class="box-header with-border">
+                 <h3 class="box-title">Top Clients (blocked only)</h3>
+-            </div>
++                <span class="dashboard-count" id="client-frequency-blocked-count"></span>
++            </summary>
+             <!-- /.box-header -->
+             <div class="box-body">
+                 <div class="table-responsive">
+@@ -272,7 +287,7 @@
+                 <i class="fa fa-sync fa-spin"></i>
+             </div>
+             <!-- /.box-body -->
+-        </div>
++        </details>
+         <!-- /.box -->
+     </div>
+     <!-- /.col -->
+--- a/scripts/js/index.js
++++ b/scripts/js/index.js
+@@ -282,6 +282,8 @@
+       apiFailure(data);
+     });
+ }
++
++let dashboardClientCount = 0;
+ 
+ function updateTopClientsTable(blocked) {
+   let api;
+@@ -306,12 +308,27 @@
+     clienttable = $("#client-frequency").find("tbody:last");
+   }
+ 
+-  $.getJSON(api, data => {
++  // Count every client Pi-hole reports while keeping the stock top-ten ranking.
++  const limit = Math.max(10, dashboardClientCount);
++  $.getJSON(api, { count: limit }, data => {
+     // Clear tables before filling them with data
+     tablecontent.remove();
+     let url;
+     let percentage;
+     const sum = blocked ? data.blocked_queries : data.total_queries;
++
++    const clients = data.clients || [];
++    if (clients.length === limit && dashboardClientCount > limit) {
++      updateTopClientsTable(blocked);
++      return;
++    }
++    if (dashboardClientCount || clients.length < limit) {
++      const count = clients.length;
++      (blocked ? table.find(".dashboard-count") : $("#client-frequency-count, #clients-count")).text(
++        "(" + count.toLocaleString() + (count === 1 ? " LAN client) (" : " LAN clients) (") +
++        sum.toLocaleString() + (sum === 1 ? " response)" : " responses)")
++      );
++    }
+ 
+     // When there is no data...
+     // a) remove table if there are no results (privacy mode enabled) or
+@@ -328,7 +345,7 @@
+     }
+ 
+     // Populate table with content
+-    for (const client of data.clients) {
++    for (const client of data.clients.slice(0, 10)) {
+       // Sanitize client
+       let clientname = client.name;
+       if (clientname.length === 0) clientname = client.ip;
+@@ -457,6 +474,9 @@
+     const intl = new Intl.NumberFormat();
+     const newCount = Number.parseInt(data.queries.total, 10);
+ 
++    dashboardClientCount = data.clients.total;
++    $("#domain-frequency-count").text(intl.format(newCount - data.queries.blocked));
++    $("#ad-frequency-count").text(intl.format(data.queries.blocked));
+     $("span#dns_queries").text(intl.format(newCount));
+     $("span#active_clients").text(intl.format(Number.parseInt(data.clients.active, 10)));
+     $("a#total_clients").attr(
+@@ -487,6 +507,10 @@
+     } else {
+       $("span#gravity_size").text(intl.format(gravityCount));
+     }
++
++    document.querySelectorAll(".dashboard-count[data-stat]").forEach(label => {
++      label.textContent = document.getElementById(label.dataset.stat).textContent;
++    });
+ 
+     $(".small-box:has(#gravity_size)").attr("title", updatetxt);
+ 
+--- a/scripts/lua/sidebar.lp
++++ b/scripts/lua/sidebar.lp
+@@ -20,7 +20,12 @@
+                     <span id="status"></span><br>
+                     <span id="query_frequency"></span><br>
+                     <span id="cpu"></span><br>
+-                    <span id="memory"></span>
++                    <span id="memory"></span><br>
++                    <span id="awesome-a-fyer-version" data-dashboard="1.1.6" style="display:inline-flex;align-items:center">
++                        <span title="Installed pages: Dashboard">&nbsp;&nbsp;Patch: v1.1.6</span>
++                        <i class="fa fa-fw fa-puzzle-piece text-green-light" style="order:-1" aria-hidden="true"></i>&nbsp;
++                        <a href="https://micassa-pics.github.io/pihole-awesome-a-fyer/check.html#dashboard=1.1.6" target="_blank" rel="noopener noreferrer" aria-label="Check for a newer patch version" title="Check for a newer patch version"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
++                    </span>
+                 </div>
+             </div>
+             <!-- sidebar menu: : style can be found in sidebar.less -->

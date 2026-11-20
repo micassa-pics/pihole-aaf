@@ -630,7 +630,7 @@ index 9fbcc19..92a13aa 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..265fb2f 100644
+index 2b7138e..873ecd7 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -667,11 +667,11 @@ index 2b7138e..265fb2f 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.5";
++  const version = "1.1.6";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
-+  line.firstElementChild.title = "Installed pages: " + [...installed.keys()].map(key => key === "dhcp" ? "DHCP" : "Query Log").join(", ");
++  line.firstElementChild.title = "Installed pages: " + [...installed.keys()].map(key => ({ dhcp: "DHCP", queries: "Query Log", dashboard: "Dashboard" })[key]).join(", ");
 +  line.lastElementChild.href = "https://micassa-pics.github.io/pihole-awesome-a-fyer/check.html#" + installed;
 +  const panel = memory.closest(".user-panel");
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
