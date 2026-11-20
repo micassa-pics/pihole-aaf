@@ -17,7 +17,7 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Switch between **All**, **Blocked**, and **Allowed**. Keep the current client filter.
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
-[![Grouped Query Log with counts and activity charts. Open the interactive comparison.](docs/comparison/queries-after.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
+[![Full Query Log with eight groups, a 24-bar chart for each group, and the top-left update checker. Open the interactive comparison.](assets/queries-overview.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
 
 [Query Log guide](queries.md)
 
