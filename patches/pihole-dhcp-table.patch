@@ -50,7 +50,7 @@ index af99c0a..dc2d854 100644
    } else {
      for (const element of expertSettingsNodes) element.classList.toggle("d-none", true);
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..933a4e9 100644
+index 27adb7b..2ac1cf1 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,55 @@
@@ -485,7 +485,7 @@ index 27adb7b..933a4e9 100644
        utils.stateSaveCallback("dhcp-leases-table", data);
      },
      stateLoadCallback() {
-@@ -156,70 +376,300 @@ $(() => {
+@@ -156,70 +376,301 @@ $(() => {
          return null;
        }
  
@@ -516,6 +516,7 @@ index 27adb7b..933a4e9 100644
 -    utils.changeTableButtonStates(dhcpLeaesTable);
 +  $("#DHCPLeasesTable .lease-toggle").on("click", function (event) {
 +    event.stopPropagation();
++    if (event.originalEvent?.detail > 0) this.blur();
 +    const show = $("#DHCPLeasesTable").hasClass(this.dataset.collapse);
 +    $("#DHCPLeasesTable").toggleClass(this.dataset.collapse, !show);
 +    $(this).find("span").text(" " + (show ? this.dataset.label : this.dataset.short));
@@ -833,7 +834,7 @@ index 27adb7b..933a4e9 100644
  }
  
  function processDHCPConfig() {
-@@ -227,6 +677,8 @@ function processDHCPConfig() {
+@@ -227,6 +678,8 @@ function processDHCPConfig() {
      url: document.body.dataset.apiurl + "/config/dhcp?detailed=true",
    })
      .done(data => {
@@ -842,7 +843,7 @@ index 27adb7b..933a4e9 100644
        fillDHCPhosts(data.config.dhcp.hosts);
        setConfigValues("dhcp", "dhcp", data.config.dhcp);
      })
-@@ -237,7 +689,7 @@ function processDHCPConfig() {
+@@ -237,7 +690,7 @@ function processDHCPConfig() {
  
  function parseStaticDHCPLine(line) {
    // Accepts: [hwaddr][,ipaddr][,hostname] (all optional, comma-separated, no advanced tokens)
@@ -851,7 +852,7 @@ index 27adb7b..933a4e9 100644
  
    // If the line is empty, return an object with empty fields
    if (!line.trim())
-@@ -264,7 +716,7 @@ function parseStaticDHCPLine(line) {
+@@ -264,7 +717,7 @@ function parseStaticDHCPLine(line) {
      // Advanced if the part is "infinite", "ignore" or a lease time value
      if (/^(infinite|ignore|\d+(w|W|d|D|h|H|m|M|s|S))$/u.test(part)) return "advanced";
  
@@ -860,7 +861,7 @@ index 27adb7b..933a4e9 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +752,50 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +753,50 @@ function parseStaticDHCPLine(line) {
    };
  }
  
@@ -914,7 +915,7 @@ index 27adb7b..933a4e9 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,10 +808,13 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,10 +809,13 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -931,7 +932,7 @@ index 27adb7b..933a4e9 100644
  
    // Update "data-original-line" to containing the new saved values
    row.attr("data-original-line", lines[rowIdx]);
-@@ -337,19 +825,26 @@ $(document).on("click", ".save-static-row", function () {
+@@ -337,19 +826,26 @@ $(document).on("click", ".save-static-row", function () {
    // then remove highlight colors from all cells on this row
    $("td", row).blur();
  
@@ -965,7 +966,7 @@ index 27adb7b..933a4e9 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -369,16 +864,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -369,16 +865,15 @@ $(document).on("click", ".cancel-static-row", function () {
    // Trigger "blur" event to remove highlight colors and titles from all cells on this row
    row.find(".static-hwaddr, .static-ipaddr, .static-hostname").blur();
  
@@ -986,7 +987,7 @@ index 27adb7b..933a4e9 100644
    }
  });
  
-@@ -386,6 +880,14 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +881,14 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1001,7 +1002,7 @@ index 27adb7b..933a4e9 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,44 +895,145 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,44 +896,145 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -1169,7 +1170,7 @@ index 27adb7b..933a4e9 100644
      const idx = row.attr("data-row");
      const saveBtn = $(
        '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
-@@ -445,80 +1048,90 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +1049,90 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
@@ -1300,7 +1301,7 @@ index 27adb7b..933a4e9 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +1144,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1145,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1317,7 +1318,7 @@ index 27adb7b..933a4e9 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1211,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1212,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1326,7 +1327,7 @@ index 27adb7b..933a4e9 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1220,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1221,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  
