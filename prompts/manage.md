@@ -34,7 +34,7 @@ Find where to make a lasting change:
 Get the selected patches
 
 1. Read the GitHub repository record:
-   https://api.github.com/repositories/1464872803
+   https://api.github.com/repositories/1464962585
    Use its clone_url to resolve refs/heads/main to a full commit SHA.
    Use that commit throughout this run.
 
