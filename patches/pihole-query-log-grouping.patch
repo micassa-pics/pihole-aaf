@@ -1,0 +1,502 @@
+diff --git a/scripts/js/queries.js b/scripts/js/queries.js
+index 9fbcc19..930d9a0 100644
+--- a/scripts/js/queries.js
++++ b/scripts/js/queries.js
+@@ -23,6 +23,19 @@ const dateformat = "MMM Do YYYY, HH:mm";
+ 
+ let table = null;
+ let cursor = null;
++let queryAPIURL;
++let queryRequest;
++let queryRequestId = 0;
++let grouped = false;
++let querySnapshot;
++let individualOrder;
++let queryScope = 0;
++const queryScopes = [
++  { label: "All", upstream: null },
++  { label: "Blocked", upstream: "blocklist" },
++  { label: "Allowed", upstream: "permitted" },
++];
++const queryBatchSize = 1000;
+ const filters = [
+   "client_ip",
+   "client_name",
+@@ -132,16 +145,133 @@ function initDateRangePicker(data) {
+   });
+ }
+ 
+-function handleAjaxError(xhr, textStatus) {
+-  if (textStatus === "timeout") {
+-    alert("The server took too long to send the data.");
+-  } else {
+-    alert("An unknown error occurred while loading the data.\n" + xhr.responseText);
+-  }
++function requestQueryPage(url, params) {
++  queryRequest = $.ajax({ url, data: params, dataType: "json" });
++  return queryRequest;
++}
+ 
+-  $("#all-queries_processing").hide();
+-  table.clear();
+-  table.draw();
++function querySource() {
++  const url = new URL(queryAPIURL, document.baseURI);
++  const { upstream } = queryScopes[queryScope];
++  const advancedUpstream = url.searchParams.get("upstream");
++  // Pi-hole represents both scopes as upstream aliases. Keep any explicit
++  // upstream filter and apply the scope locally when they would conflict.
++  if (upstream && !advancedUpstream) url.searchParams.set("upstream", upstream);
++  return {
++    url: url.href,
++    filterLocally: Boolean(upstream && advancedUpstream && upstream !== advancedUpstream),
++    blocked: upstream === "blocklist",
++  };
++}
++
++async function collectQueryRows(request, source, requestId) {
++  const groups = new Map();
++  const rows = [];
++  let page;
++  let start = 0;
++  do {
++    page = await requestQueryPage(source.url, {
++      ...request,
++      start,
++      length: queryBatchSize,
++      order: grouped ? [{ column: 0, dir: "desc" }] : request.order,
++      cursor: page?.cursor,
++    });
++
++    if (requestId !== queryRequestId) return;
++    if (beginningOfTime === null && start === 0) initDateRangePicker(page);
++
++    for (const query of page.queries) {
++      if (source.filterLocally && parseQueryStatus(query).blocked !== source.blocked) continue;
++      if (!grouped) {
++        rows.push(query);
++        continue;
++      }
++
++      const { domain, type, client } = query;
++      const hidden = domain === "hidden" || !client.ip || client.ip === "0.0.0.0";
++      const id = hidden ? Symbol() : JSON.stringify([String(domain).toLowerCase(), type, client.ip]);
++      const existing = groups.get(id);
++      if (existing) {
++        existing.group.count++;
++        existing.group.mixedStatus ||= existing.status !== query.status || existing.cname !== query.cname;
++        existing.group.mixedDNSSEC ||= existing.dnssec !== query.dnssec;
++      } else {
++        groups.set(id, { ...query, group: { count: 1, mixedStatus: false, mixedDNSSEC: false } });
++      }
++    }
++
++    start += page.queries.length;
++  } while (page.queries.length > 0 && start < page.recordsFiltered);
++
++  return grouped ? [...groups.values()] : rows;
++}
++
++function sortQueryGroups(rows, order) {
++  const fields = [
++    row => row.time,
++    row => row.group.mixedStatus ? "Mixed" : row.status,
++    row => row.type,
++    row => String(row.domain).toLowerCase(),
++    row => $.fn.dataTable.ext.type.order["ip-address-pre"](row.client.ip),
++    row => row.group.count,
++  ];
++  return [...rows].sort((a, b) => {
++    for (const { column, dir } of order) {
++      const field = fields[column];
++      if (!field) continue;
++      const left = field(a);
++      const right = field(b);
++      if (left !== right) return (left < right ? -1 : 1) * (dir === "asc" ? 1 : -1);
++    }
++
++    return b.time - a.time;
++  });
++}
++
++async function loadQueryRows(request, callback) {
++  const id = ++queryRequestId;
++  queryRequest?.abort();
++  const status = $("#query-view-status");
++  status.text("");
++
++  try {
++    const source = querySource();
++    if (grouped || source.filterLocally) {
++      const key = JSON.stringify([source.url, queryScope, request.search, request.columns, grouped ? null : request.order]);
++      if (querySnapshot?.key !== key) {
++        status.text(grouped ? "Grouping queries…" : "Filtering queries…");
++        const rows = await collectQueryRows(request, source, id);
++        if (id !== queryRequestId) return;
++        querySnapshot = { key, rows };
++      }
++      const rows = grouped ? sortQueryGroups(querySnapshot.rows, request.order) : querySnapshot.rows;
++      status.text("");
++      if (liveMode) utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
++      callback({
++        draw: request.draw,
++        data: rows.slice(request.start, request.start + request.length),
++        recordsTotal: rows.length,
++        recordsFiltered: rows.length,
++      });
++    } else {
++      const response = await requestQueryPage(source.url, { ...request, cursor: cursor ?? undefined });
++      if (id !== queryRequestId) return;
++      cursor = response.cursor;
++      if (beginningOfTime === null) initDateRangePicker(response);
++      if (liveMode) utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
++      callback({ ...response, data: response.queries });
++    }
++  } catch (error) {
++    if (id !== queryRequestId) return;
++    if (grouped) {
++      status.text("Could not group queries. Click Refresh to retry.");
++    } else {
++      alert("Could not load queries." + (error.responseText ? "\n" + error.responseText : ""));
++    }
++
++    callback({ draw: request.draw, data: [], recordsTotal: 0, recordsFiltered: 0 });
++  }
+ }
+ 
+ function parseQueryStatus(data) {
+@@ -214,6 +344,7 @@ function parseQueryStatus(data) {
+       buttontext = "";
+       blocked = true;
+       break;
++    case "EXTERNAL_BLOCKED_EDE15":
+     case "QUERY_EXTERNAL_BLOCKED_EDE15":
+       colorClass = "text-red";
+       icon = "fa-solid fa-ban";
+@@ -274,6 +405,7 @@ function parseQueryStatus(data) {
+       buttontext =
+         '<button type="button" class="btn btn-default btn-sm text-red btn-blacklist"><i class="fa fa-ban"></i> Deny</button>';
+       break;
++    case "DBBUSY":
+     case "SPECIAL_DOMAIN":
+       colorClass = "text-red";
+       icon = "fa-solid fa-ban";
+@@ -446,7 +578,7 @@ function formatInfo(data) {
+   return (
+     '<div class="row">' +
+     divStart +
+-    "Query received on:&nbsp;&nbsp;" +
++    (data.group ? "Latest matching query:&nbsp;&nbsp;" : "Query received on:&nbsp;&nbsp;") +
+     moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
+     "</div>" +
+     clientInfo +
+@@ -462,45 +594,16 @@ function formatInfo(data) {
+   );
+ }
+ 
+-function addSelectSuggestion(name, dict, data) {
+-  const obj = $("#" + name + "_filter");
+-  let value = "";
+-  obj.empty();
+-
+-  // In order for the placeholder value to appear, we have to have a blank
+-  // <option> as the first option in our <select> control. This is because
+-  // the browser tries to select the first option by default. If our first
+-  // option were non-empty, the browser would display this instead of the
+-  // placeholder.
+-  obj.append($("<option />"));
+-
+-  // Add GET parameter as first suggestion (if present and not already included)
+-  if (name in dict) {
+-    value = decodeURIComponent(dict[name]);
+-    if (!data.includes(value)) data.unshift(value);
+-  }
+-
+-  // Add data obtained from API
+-  for (const text of Object.values(data)) {
+-    obj.append($("<option />").val(text).text(text));
+-  }
+-
+-  // Select GET parameter (if present)
+-  if (name in dict) {
+-    obj.val(value);
+-  }
+-}
+-
+-function getSuggestions(dict) {
+-  $.get(
+-    document.body.dataset.apiurl + "/queries/suggestions",
+-    data => {
+-      for (const filter of Object.values(filters)) {
+-        addSelectSuggestion(filter, dict, data.suggestions[filter]);
++function getSuggestions() {
++  $.getJSON(document.body.dataset.apiurl + "/queries/suggestions", data => {
++    for (const filter of filters) {
++      const select = $("#" + filter + "_filter");
++      const existing = new Set(select.find("option").map((_, option) => option.value).get());
++      for (const value of data.suggestions[filter]) {
++        if (!existing.has(value)) select.append(new Option(value, value));
+       }
+-    },
+-    "json"
+-  );
++    }
++  });
+ }
+ 
+ function parseFilters() {
+@@ -525,7 +628,7 @@ function getAPIURL(filters) {
+   // up the database lookups notably on slow devices. The API accepts timestamps
+   // in seconds since epoch
+   if (from > beginningOfTime) apiurl += "&from=" + from;
+-  if (until > beginningOfTime && until < endOfTime) apiurl += "&until=" + until;
++  if (until !== null && until < endOfTime) apiurl += "&until=" + until;
+ 
+   if ($("#disk").prop("checked")) apiurl += "&disk=true";
+ 
+@@ -554,7 +657,9 @@ $(() => {
+   const GETDict = utils.parseQueryString();
+ 
+   for (const [sel, element] of Object.entries(filters)) {
+-    $(`#${element}_filter`).select2({
++    const select = $(`#${element}_filter`).append(new Option("", ""));
++    if (GETDict[element]) select.append(new Option(GETDict[element], GETDict[element], true, true));
++    select.select2({
+       width: "100%",
+       tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
+       placeholder: "Select...",
+@@ -562,8 +667,8 @@ $(() => {
+     });
+   }
+ 
+-  getSuggestions(GETDict);
+-  const apiURL = getAPIURL(GETDict);
++  getSuggestions();
++  queryAPIURL = getAPIURL(GETDict);
+ 
+   if ("from" in GETDict) {
+     from = Number(GETDict.from);
+@@ -574,29 +679,7 @@ $(() => {
+   }
+ 
+   table = $("#all-queries").DataTable({
+-    ajax: {
+-      url: apiURL,
+-      error: handleAjaxError,
+-      dataSrc: "queries",
+-      data(d) {
+-        if (cursor !== null) d.cursor = cursor;
+-      },
+-      dataFilter(d) {
+-        const json = JSON.parse(d);
+-        cursor = json.cursor; // Extract cursor from original data
+-
+-        // Initialize the date picker (if not already done)
+-        if (beginningOfTime === null) {
+-          initDateRangePicker(json);
+-        }
+-
+-        if (liveMode) {
+-          utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
+-        }
+-
+-        return d;
+-      },
+-    },
++    ajax: loadQueryRows,
+     serverSide: true,
+     dom:
+       "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
+@@ -620,10 +703,17 @@ $(() => {
+       },
+       { data: "status", width: "1%", searchable: false },
+       { data: "type", width: "1%", searchable: false },
+-      { data: "domain", width: "45%" },
++      { data: "domain", width: "45%", render: $.fn.dataTable.render.text() },
+       { data: "client.ip", width: "29%", type: "ip-address" },
+-      { data: "reply.time", width: "4%", render: formatReplyTime, searchable: false },
+-      { data: null, width: "10%", sortable: false, searchable: false },
++      {
++        data: "reply.time",
++        width: "4%",
++        render(data, type, row) {
++          return row.group ? row.group.count : formatReplyTime(data, type);
++        },
++        searchable: false,
++      },
++      { data: null, defaultContent: "", width: "10%", sortable: false, searchable: false },
+     ],
+     lengthMenu: [
+       [10, 25, 50, 100, 500, 1000],
+@@ -632,7 +722,7 @@ $(() => {
+     stateSave: true,
+     stateDuration: 0,
+     stateSaveCallback(settings, data) {
+-      utils.stateSaveCallback("query_log_table", data);
++      if (!grouped) utils.stateSaveCallback("query_log_table", data);
+     },
+     stateLoadCallback() {
+       const state = utils.stateLoadCallback("query_log_table");
+@@ -642,8 +732,11 @@ $(() => {
+     },
+     rowCallback(row, data) {
+       const querystatus = parseQueryStatus(data);
++      const mixedStatus = data.group?.mixedStatus;
+ 
+-      if (querystatus.icon !== false) {
++      if (mixedStatus) {
++        $("td:eq(1)", row).text("Mixed").attr("title", "This group contains multiple query results");
++      } else if (querystatus.icon !== false) {
+         $("td:eq(1)", row).html(
+           "<i class='fa fa-fw " +
+             querystatus.icon +
+@@ -658,14 +751,14 @@ $(() => {
+       }
+ 
+       // Define row background color
+-      $(row).addClass(querystatus.blocked === true ? "blocked-row" : "allowed-row");
++      if (!mixedStatus) $(row).addClass(querystatus.blocked === true ? "blocked-row" : "allowed-row");
+ 
+       // Substitute domain by "." if empty
+       let domain = data.domain === 0 ? "." : data.domain;
+ 
+       // Prefix colored DNSSEC icon to domain text
+       let dnssecIcon = "";
+-      if (doDNSSEC === true) {
++      if (doDNSSEC === true && !data.group?.mixedDNSSEC) {
+         const dnssec = parseDNSSEC(data);
+         dnssecIcon =
+           '<i class="mr-2 fa fa-fw ' +
+@@ -680,10 +773,9 @@ $(() => {
+       // Escape HTML in domain
+       domain = dnssecIcon + utils.escapeHtml(domain);
+ 
+-      if (querystatus.isCNAME) {
++      if (querystatus.isCNAME && !mixedStatus) {
+         // Add domain in CNAME chain causing the query to have been blocked
+-        data.cname = utils.escapeHtml(data.cname);
+-        $("td:eq(3)", row).html(domain + "\n(blocked " + data.cname + ")");
++        $("td:eq(3)", row).html(domain + "\n(blocked " + utils.escapeHtml(data.cname) + ")");
+       } else {
+         $("td:eq(3)", row).html(domain);
+       }
+@@ -696,14 +788,17 @@ $(() => {
+       }
+ 
+       // Show X-icon instead of reply time if no reply was received
+-      if (data.reply.type === "UNKNOWN") {
++      if (!data.group && data.reply.type === "UNKNOWN") {
+         $("td:eq(5)", row).html('<i class="fa fa-times"></i>');
+       }
+ 
+-      if (querystatus.buttontext !== false) {
++      if (querystatus.buttontext !== false && !mixedStatus) {
+         $("td:eq(6)", row).html(querystatus.buttontext);
+       }
+     },
++    infoCallback(_settings, start, end, _max, total, text) {
++      return grouped ? "Showing " + start + " to " + end + " of " + total + (total === 1 ? " group" : " groups") : text;
++    },
+     initComplete() {
+       this.api()
+         .columns()
+@@ -718,11 +813,12 @@ $(() => {
+           // Replace footer text with input field for searchable columns
+           const input = document.createElement("input");
+           input.placeholder = this.footer().textContent;
++          input.value = this.search();
+           this.footer().replaceChildren(input);
+ 
+           // Event listener for user input
+-          input.addEventListener("keyup", () => {
+-            if (this.search() !== this.value) {
++          input.addEventListener("input", () => {
++            if (this.search() !== input.value) {
+               this.search(input.value).draw();
+             }
+           });
+@@ -760,6 +856,8 @@ $(() => {
+       return;
+     }
+ 
++    if (!row.data()) return;
++
+     if (row.child.isShown()) {
+       // This row is already open - close it
+       row.child.hide();
+@@ -771,31 +869,65 @@ $(() => {
+     }
+   });
+ 
++  const replyTimeTitles = $("#all-queries thead th:nth-child(6), #all-queries tfoot th:nth-child(6)");
++  const stopwatch = replyTimeTitles.first().html();
++  const groupButton = $('<button type="button" class="btn btn-sm btn-default btn-flat" aria-pressed="false">Group</button>');
++  const scopeButton = $(
++    '<button type="button" class="btn btn-sm btn-default btn-flat" title="Cycle between All, Blocked, and Allowed">All</button>'
++  ).attr("aria-label", "Query status: All");
++  const viewStatus = $('<span id="query-view-status" class="mr-2" role="status"></span>');
++  $("#live").parent().before(viewStatus, groupButton, " ", scopeButton, " ");
++
++  scopeButton.on("click", () => {
++    queryScope = (queryScope + 1) % queryScopes.length;
++    const { label } = queryScopes[queryScope];
++    scopeButton.text(label).attr("aria-label", "Query status: " + label);
++    resetQuerySnapshot();
++    table.draw();
++  });
++
++  groupButton.on("click", () => {
++    if (!grouped) individualOrder = table.order().map(order => [...order]);
++    grouped = !grouped;
++    groupButton.attr("aria-pressed", String(grouped)).text(grouped ? "Ungroup" : "Group");
++    replyTimeTitles.html(grouped ? "Count" : stopwatch);
++    if (grouped) {
++      liveMode = false;
++      $("#live").prop("checked", false);
++    }
++    $("#live").prop("disabled", grouped || $("#disk").prop("checked"));
++
++    resetQuerySnapshot();
++    table.order(grouped ? [[5, "desc"]] : individualOrder).draw();
++  });
++
+   $("#refresh").on("click", refreshTable);
+ 
+-  // Disable live mode when #disk is checked
++  // Disk queries and grouped snapshots are refreshed manually.
+   $("#disk").on("click", function () {
+     if ($(this).prop("checked")) {
+       $("#live").prop("checked", false);
+-      $("#live").prop("disabled", true);
+       liveMode = false;
+-    } else {
+-      $("#live").prop("disabled", false);
+     }
++
++    $("#live").prop("disabled", grouped || $(this).prop("checked"));
+   });
+ });
+ 
+-function refreshTable() {
+-  // Set cursor to NULL so we pick up newer queries
++function resetQuerySnapshot() {
+   cursor = null;
++  querySnapshot = undefined;
++}
++
++function refreshTable() {
++  // Start a new snapshot so we pick up newer queries.
++  resetQuerySnapshot();
+ 
+   // Clear table
+   table.clear();
+ 
+   // Source data from API
+   const filters = parseFilters();
+-  filters.from = from;
+-  filters.until = until;
+-  const apiUrl = getAPIURL(filters);
+-  table.ajax.url(apiUrl).draw();
++  queryAPIURL = getAPIURL(filters);
++  table.draw();
+ }
