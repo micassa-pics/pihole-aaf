@@ -3,11 +3,13 @@
 Copy the entire block into your LLM. If you have the original installation report, include it so the LLM can use the exact patch revision and backup.
 
 ```text
-Remove the Pi-hole Awesome-a-fyer DHCP and Query Log web patches from my
-chosen instance. Preserve DNS settings, reservations, leases, query history
-and unrelated edits.
+First ask me: “Which would you like to remove: DHCP only, Query Log only,
+or both?” Use my choice if I already gave one. Wait for a clear selection
+before downloading files or connecting. Remove only the selected patches.
+Preserve any other installed patch, DNS settings, reservations, leases,
+query history and unrelated edits.
 
-First ask me for the device address, my usual Pi-hole Admin URL, and how I
+Then ask me for the device address, my usual Pi-hole Admin URL, and how I
 SSH into the machine that manages it. An SSH alias or my usual SSH command
 is enough. Ask for the username, port, jump host, and local key path only if
 needed. The web address and SSH host may differ. If I have already supplied
@@ -20,13 +22,12 @@ If you only have chat access, guide me one step at a time and use my output
 to choose the next step. Put commands in fenced code blocks labeled by
 machine and shell.
 
-Locate the install report or recovery copy and identify the revision
-actually installed. The links below match this edition of the prompt.
-If the report records a different commit, retrieve its patches from that
-commit of micassa-pics/pihole-awesome-a-fyer and verify the recorded hashes.
+Locate the install report or recovery copy for each selected patch and
+identify its installed revision. If the report records a different commit
+from the links below, use that patch's recorded commit and hash instead.
 
-Fetch these two patches over HTTPS on the workstation. Both links point to the
-same Git commit. Verify each file's SHA-256 before using it.
+Fetch only the selected patch files over HTTPS on the workstation.
+Verify each downloaded file's SHA-256 before using it.
 
 pihole-dhcp-table.patch
 https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/27baeefcd1060e57e8934773e5a80371eca7534f/patches/pihole-dhcp-table.patch
@@ -38,7 +39,7 @@ SHA-256 813d9ec084b4d177b472db5660db6d240cb9e45587f4dc46ec417141434a0e9a
 
 The DHCP patch touches settings-dhcp.lp, scripts/js/settings-dhcp.js and
 scripts/js/footer.js. The Query Log patch touches scripts/js/queries.js.
-All four paths are relative to the Pi-hole web interface directory.
+Paths are relative to the Pi-hole web interface directory.
 
 1. Identify the installed Web version, served web directory, and persistent
    owner of the files. On native, VM, or LXC installs, locate the actual
@@ -46,7 +47,7 @@ All four paths are relative to the Pi-hole web interface directory.
    managed deployment, trace mounts, custom images, and deployment
    definitions. Check whether an update already removed the changes.
 
-2. Stage copies of the four current files. Check each patch independently
+2. Stage the current files targeted by the selection. Check each selected patch
    with git apply --reverse --check and git apply --check. Reverse a
    cleanly installed patch in staging. Skip one already absent. If results
    are ambiguous, compare with stock files from the exact installed Web
@@ -57,15 +58,17 @@ All four paths are relative to the Pi-hole web interface directory.
    and disposable containers. Verify the staged diff removes only these
    patches and the live hashes still match the originals.
 
-4. Undo the change at its persistent source. Remove any build or deployment
-   step that would reapply it. Use an earlier image or revision only if it
-   preserves the current Pi-hole version and unrelated changes. Ask before
+4. Undo the change at its persistent source. If a build step applies both
+   patches and I selected one, edit the step to keep applying the other.
+   Use an earlier image or revision only if it preserves the current Pi-hole
+   version, any unselected patch, and unrelated changes. Ask before
    a rollout that could interrupt DNS or DHCP. Restore file metadata and
    verify the result inside every serving replica. If it fails partway,
    restore and verify the pre-undo state.
 
-5. In a fresh browser session, check the stock DHCP and Query Log pages at
-   the real admin URL. Use read-only checks. Report each patch's status,
+5. In a fresh browser session, verify that the selected features have been
+   removed from their respective admin pages. Use read-only checks.
+   Report the status of each selected patch,
    checks actually performed, and the recovery copy or revision.
 ```
 

@@ -8,7 +8,7 @@ Unofficial web interface patches for Pi-hole v6. Manage DHCP reservations from t
 
 **[Install with the copyable prompt](prompts/install.md)** · **[Undo with the copyable prompt](prompts/undo.md)** · **[Browse the patches](patches/README.md)**
 
-Open the install page, copy the full prompt, and paste it into your LLM. It asks for your Pi-hole address and SSH details, fetches the two patch files, and checks them against your installed web interface. The undo page works the same way.
+Copy the install prompt into your LLM and choose **DHCP only**, **Query Log only**, or **both**. It asks how to reach your Pi-hole, then fetches and checks your selected patches. The undo prompt offers the same choices.
 
 <a name="dhcp"></a>
 
