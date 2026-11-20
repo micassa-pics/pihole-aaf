@@ -6,7 +6,9 @@ Unofficial web interface patches for Pi-hole v6. Manage DHCP reservations from t
 
 Open the install page, copy the full prompt, and paste it into your LLM. It asks for your Pi-hole address and SSH details, fetches the two patch files, and checks them against your installed web interface. The undo page works the same way.
 
-## DHCP
+<a name="dhcp"></a>
+
+## awesome-a-fyer the dhcp page
 
 ![DHCP Settings in Expert mode with all five sections collapsed](assets/dhcp-sections-collapsed.png)
 
