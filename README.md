@@ -33,6 +33,6 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Check lease time remaining and DNS activity for the past 24 hours.
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
-[![Patched DHCP table with a new reservation and collapsed MAC and CID columns. Open the interactive comparison.](docs/comparison/dhcp-after.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
+[![Full DHCP page with eight active leases, eight static reservations, the collapsed lease range, and the sidebar update checker. Open the interactive comparison.](assets/dhcp-overview.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
 
 [DHCP guide](dhcp.md)
