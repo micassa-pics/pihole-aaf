@@ -40,7 +40,7 @@ Get the selected patches
 
 2. Choose the patch file for each selected page.
    DHCP uses pihole-dhcp-table.patch. It changes settings-dhcp.lp,
-   scripts/js/settings-dhcp.js, and scripts/js/footer.js.
+   scripts/js/settings-dhcp.js, and scripts/js/footer.js. It adds vendor/datatables/dataTables.colReorder.min.js. Record whether that file existed before installation so undo can restore the original state.
    Query Log uses pihole-query-log-grouping.patch.
    It changes scripts/js/queries.js.
    Check the paths in each patch against the web interface directory.

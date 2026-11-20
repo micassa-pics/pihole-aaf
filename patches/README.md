@@ -2,7 +2,7 @@
 
 | Patch | Files changed | Download |
 | --- | --- | --- |
-| [DHCP tables and headings](pihole-dhcp-table.patch) | `settings-dhcp.lp`, `scripts/js/settings-dhcp.js`, `scripts/js/footer.js` | [Raw DHCP patch](pihole-dhcp-table.patch?raw=true) |
+| [DHCP tables and headings](pihole-dhcp-table.patch) | `settings-dhcp.lp`, `scripts/js/settings-dhcp.js`, `scripts/js/footer.js`, `vendor/datatables/dataTables.colReorder.min.js` | [Raw DHCP patch](pihole-dhcp-table.patch?raw=true) |
 | [Query Log grouping and filters](pihole-query-log-grouping.patch) | `scripts/js/queries.js` | [Raw Query Log patch](pihole-query-log-grouping.patch?raw=true) |
 
 Use the **Download** column to get a patch from this revision. Apply patches from the Pi-hole web interface directory.

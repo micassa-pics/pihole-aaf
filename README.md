@@ -28,6 +28,8 @@ This project provides two independent patches for the Pi-hole v6 web interface. 
 
 ### Group repeated queries
 
+When you filter by one client, its hostname appears in bold beside **Recent Queries**.
+
 Select **Group** at the top of Recent Queries. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
 
 The **Time** chart divides the full query range into 24 equal intervals, from oldest to newest. For a six-hour range, each bar covers 15 minutes. For a two-day range, each bar covers two hours. An empty slot means zero queries. Hover over a slot to see its UTC interval and count.
@@ -76,9 +78,11 @@ Under **Currently active DHCP leases**, tap a hostname to edit it. In either tab
 
 In **Expiration**, the outline represents the configured lease time. The fill shows the time left. Hover or focus the bar for Pi-hole's usual wording, such as "in 3 hours" or "Never".
 
+Drag a column header in either DHCP table to move it. Each table remembers its own layout in your browser. Hostname edits appear under **Save & Apply** as one change, such as **office-printer → studio-printer**.
+
 In active leases, **Expiration** sits beside **Hostname**. **MAC** and **CID** start collapsed. Tap either header label to show or hide that column’s values.
 
-The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. A dash means Pi-hole has no per-IP history for that lease.
+The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. An empty chart shows only the horizontal axis.
 
 In this example, the top three devices already have reservations. The bottom three have a **+** button.
 

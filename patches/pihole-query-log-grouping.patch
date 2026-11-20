@@ -1,5 +1,5 @@
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..620fccd 100644
+index 9fbcc19..36cddf1 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
 @@ -23,6 +23,20 @@ const dateformat = "MMM Do YYYY, HH:mm";
@@ -23,7 +23,7 @@ index 9fbcc19..620fccd 100644
  const filters = [
    "client_ip",
    "client_name",
-@@ -132,16 +146,169 @@ function initDateRangePicker(data) {
+@@ -132,16 +146,188 @@ function initDateRangePicker(data) {
    });
  }
  
@@ -155,6 +155,21 @@ index 9fbcc19..620fccd 100644
 +  });
 +}
 +
++function updateClientHeading(params, rows = []) {
++  const heading = $("#recent-queries > .box-header > .box-title");
++  const ip = params.get("client_ip") || "";
++  const name = params.get("client_name") || "";
++  const key = JSON.stringify([ip, name]);
++  if (heading.data("client-key") !== key) heading.text("Recent Queries").data("client-key", key);
++  const exactName = name && utils.validateHostnameDHCP(name);
++  const exactIP = utils.validateIPv4(ip) || /^[a-f0-9:]+$/i.test(ip) && ip.includes(":");
++  if (!exactName && !exactIP) return;
++  const match = rows.find(row => row.client?.name && (!ip || row.client.ip === ip) &&
++    (!name || row.client.name.toLowerCase() === name.toLowerCase()));
++  const hostname = match?.client.name || (exactName ? name : "");
++  if (hostname) heading.text("Recent Queries – ").append($("<strong>").text(hostname));
++}
++
 +async function loadQueryRows(request, callback) {
 +  const id = ++queryRequestId;
 +  queryRequest?.abort();
@@ -163,6 +178,8 @@ index 9fbcc19..620fccd 100644
 +
 +  try {
 +    const source = querySource();
++    const filters = new URL(source.url).searchParams;
++    updateClientHeading(filters);
 +    if (grouped || source.filterLocally) {
 +      const key = JSON.stringify([source.url, queryScope, request.search, request.columns, grouped ? null : request.order]);
 +      if (querySnapshot?.key !== key) {
@@ -174,6 +191,7 @@ index 9fbcc19..620fccd 100644
 +      const rows = grouped ? sortQueryGroups(querySnapshot.rows, request.order) : querySnapshot.rows;
 +      status.text("");
 +      if (liveMode) utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
++      updateClientHeading(filters, rows);
 +      callback({
 +        draw: request.draw,
 +        data: rows.slice(request.start, request.start + request.length),
@@ -186,6 +204,7 @@ index 9fbcc19..620fccd 100644
 +      cursor = response.cursor;
 +      if (beginningOfTime === null) initDateRangePicker(response);
 +      if (liveMode) utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
++      updateClientHeading(filters, response.queries);
 +      callback({ ...response, data: response.queries });
 +    }
 +  } catch (error) {
@@ -201,7 +220,7 @@ index 9fbcc19..620fccd 100644
  }
  
  function parseQueryStatus(data) {
-@@ -214,6 +381,7 @@ function parseQueryStatus(data) {
+@@ -214,6 +400,7 @@ function parseQueryStatus(data) {
        buttontext = "";
        blocked = true;
        break;
@@ -209,7 +228,7 @@ index 9fbcc19..620fccd 100644
      case "QUERY_EXTERNAL_BLOCKED_EDE15":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -274,6 +442,7 @@ function parseQueryStatus(data) {
+@@ -274,6 +461,7 @@ function parseQueryStatus(data) {
        buttontext =
          '<button type="button" class="btn btn-default btn-sm text-red btn-blacklist"><i class="fa fa-ban"></i> Deny</button>';
        break;
@@ -217,7 +236,7 @@ index 9fbcc19..620fccd 100644
      case "SPECIAL_DOMAIN":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -446,7 +615,7 @@ function formatInfo(data) {
+@@ -446,7 +634,7 @@ function formatInfo(data) {
    return (
      '<div class="row">' +
      divStart +
@@ -226,7 +245,7 @@ index 9fbcc19..620fccd 100644
      moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
      "</div>" +
      clientInfo +
-@@ -462,45 +631,16 @@ function formatInfo(data) {
+@@ -462,45 +650,16 @@ function formatInfo(data) {
    );
  }
  
@@ -281,7 +300,7 @@ index 9fbcc19..620fccd 100644
  }
  
  function parseFilters() {
-@@ -525,7 +665,7 @@ function getAPIURL(filters) {
+@@ -525,7 +684,7 @@ function getAPIURL(filters) {
    // up the database lookups notably on slow devices. The API accepts timestamps
    // in seconds since epoch
    if (from > beginningOfTime) apiurl += "&from=" + from;
@@ -290,7 +309,7 @@ index 9fbcc19..620fccd 100644
  
    if ($("#disk").prop("checked")) apiurl += "&disk=true";
  
-@@ -554,7 +694,9 @@ $(() => {
+@@ -554,7 +713,9 @@ $(() => {
    const GETDict = utils.parseQueryString();
  
    for (const [sel, element] of Object.entries(filters)) {
@@ -301,7 +320,7 @@ index 9fbcc19..620fccd 100644
        width: "100%",
        tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
        placeholder: "Select...",
-@@ -562,8 +704,8 @@ $(() => {
+@@ -562,8 +723,8 @@ $(() => {
      });
    }
  
@@ -312,7 +331,7 @@ index 9fbcc19..620fccd 100644
  
    if ("from" in GETDict) {
      from = Number(GETDict.from);
-@@ -574,29 +716,7 @@ $(() => {
+@@ -574,29 +735,7 @@ $(() => {
    }
  
    table = $("#all-queries").DataTable({
@@ -343,7 +362,7 @@ index 9fbcc19..620fccd 100644
      serverSide: true,
      dom:
        "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
-@@ -609,8 +729,9 @@ $(() => {
+@@ -609,8 +748,9 @@ $(() => {
        {
          data: "time",
          width: "10%",
@@ -354,7 +373,7 @@ index 9fbcc19..620fccd 100644
              return moment.unix(data).format("Y-MM-DD [<br class='hidden-lg'>]HH:mm:ss z");
            }
  
-@@ -620,10 +741,17 @@ $(() => {
+@@ -620,10 +760,17 @@ $(() => {
        },
        { data: "status", width: "1%", searchable: false },
        { data: "type", width: "1%", searchable: false },
@@ -375,7 +394,7 @@ index 9fbcc19..620fccd 100644
      ],
      lengthMenu: [
        [10, 25, 50, 100, 500, 1000],
-@@ -632,7 +760,7 @@ $(() => {
+@@ -632,7 +779,7 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -384,7 +403,7 @@ index 9fbcc19..620fccd 100644
      },
      stateLoadCallback() {
        const state = utils.stateLoadCallback("query_log_table");
-@@ -642,8 +770,11 @@ $(() => {
+@@ -642,8 +789,11 @@ $(() => {
      },
      rowCallback(row, data) {
        const querystatus = parseQueryStatus(data);
@@ -397,7 +416,7 @@ index 9fbcc19..620fccd 100644
          $("td:eq(1)", row).html(
            "<i class='fa fa-fw " +
              querystatus.icon +
-@@ -658,14 +789,14 @@ $(() => {
+@@ -658,14 +808,14 @@ $(() => {
        }
  
        // Define row background color
@@ -414,7 +433,7 @@ index 9fbcc19..620fccd 100644
          const dnssec = parseDNSSEC(data);
          dnssecIcon =
            '<i class="mr-2 fa fa-fw ' +
-@@ -680,10 +811,9 @@ $(() => {
+@@ -680,10 +830,9 @@ $(() => {
        // Escape HTML in domain
        domain = dnssecIcon + utils.escapeHtml(domain);
  
@@ -427,7 +446,7 @@ index 9fbcc19..620fccd 100644
        } else {
          $("td:eq(3)", row).html(domain);
        }
-@@ -696,14 +826,17 @@ $(() => {
+@@ -696,14 +845,17 @@ $(() => {
        }
  
        // Show X-icon instead of reply time if no reply was received
@@ -447,7 +466,7 @@ index 9fbcc19..620fccd 100644
      initComplete() {
        this.api()
          .columns()
-@@ -718,11 +851,12 @@ $(() => {
+@@ -718,11 +870,12 @@ $(() => {
            // Replace footer text with input field for searchable columns
            const input = document.createElement("input");
            input.placeholder = this.footer().textContent;
@@ -462,7 +481,7 @@ index 9fbcc19..620fccd 100644
                this.search(input.value).draw();
              }
            });
-@@ -760,6 +894,8 @@ $(() => {
+@@ -760,6 +913,8 @@ $(() => {
        return;
      }
  
@@ -471,7 +490,7 @@ index 9fbcc19..620fccd 100644
      if (row.child.isShown()) {
        // This row is already open - close it
        row.child.hide();
-@@ -771,31 +907,65 @@ $(() => {
+@@ -771,31 +926,65 @@ $(() => {
      }
    });
  

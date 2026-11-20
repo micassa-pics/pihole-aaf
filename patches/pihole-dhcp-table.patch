@@ -50,7 +50,7 @@ index af99c0a..dc2d854 100644
    } else {
      for (const element of expertSettingsNodes) element.classList.toggle("d-none", true);
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..4128431 100644
+index 27adb7b..ff39b57 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,55 @@
@@ -111,7 +111,7 @@ index 27adb7b..4128431 100644
  
  // DHCP leases tooltips
  $("body").tooltip({ selector: '[data-toggle="tooltip"]', container: "body" });
-@@ -22,15 +69,197 @@ function renderHostnameCLID(data, type) {
+@@ -22,15 +69,204 @@ function renderHostnameCLID(data, type) {
        return "<em>---</em>";
      }
  
@@ -151,7 +151,14 @@ index 27adb7b..4128431 100644
 +    });
 +}
 +
-+function queryActivityChart({ bins, range }) {
++function queryActivityChart(activity) {
++  if (!activity) {
++    const label = leaseActivity ? "No per-IP history available" : "Loading query history";
++    return '<svg class="query-activity-chart" width="120" height="28" role="img" aria-label="' + label +
++      '"><title>' + label + '</title><path d="M0 27.5 H120" stroke="' +
++      utils.getCSSval("graphs-grid", "background-color") + '"/></svg>';
++  }
++  const { bins, range } = activity;
 +  const peak = Math.max(...bins);
 +  const timeLabel = seconds => moment.unix(seconds).utc().format("YYYY-MM-DD HH:mm:ss");
 +  const label = "Query activity in 24 equal intervals from " + timeLabel(range.start) + " to " +
@@ -311,7 +318,7 @@ index 27adb7b..4128431 100644
      ajax: {
        url: document.body.dataset.apiurl + "/dhcp/leases",
        type: "GET",
-@@ -38,104 +267,91 @@ $(() => {
+@@ -38,104 +274,91 @@ $(() => {
      },
      order: [[1, "asc"]],
      columns: [
@@ -389,8 +396,7 @@ index 27adb7b..4128431 100644
 +        if (clientIdField.val() !== data.clientid) clientIdField.val(data.clientid);
 +      }
 +      const activity = leaseActivity?.get(data.ip);
-+      $(".lease-activity", row).html(activity ? queryActivityChart(activity) :
-+        (leaseActivity ? '<span title="No per-IP history available">—</span>' : "…"));
++      $(".lease-activity", row).html(queryActivityChart(activity));
        // Create buttons without data-* attributes in HTML
        const $deleteBtn = $(
          '<button type="button" class="btn btn-danger btn-xs"><span class="far fa-trash-alt"></span></button>'
@@ -463,6 +469,7 @@ index 27adb7b..4128431 100644
 -        },
 -      },
 -    ],
++    colReorder: { realtime: false },
 +    select: false,
      dom:
        "<'row'<'col-sm-6'l><'col-sm-6'f>>" +
@@ -474,7 +481,7 @@ index 27adb7b..4128431 100644
        "<'row'<'col-sm-12'i>>",
      lengthMenu: [
        [10, 25, 50, 100, -1],
-@@ -147,6 +363,9 @@ $(() => {
+@@ -147,6 +370,9 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -484,7 +491,7 @@ index 27adb7b..4128431 100644
        utils.stateSaveCallback("dhcp-leases-table", data);
      },
      stateLoadCallback() {
-@@ -156,79 +375,373 @@ $(() => {
+@@ -156,79 +382,399 @@ $(() => {
          return null;
        }
  
@@ -513,6 +520,7 @@ index 27adb7b..4128431 100644
    });
 -  dhcpLeaesTable.on("init select deselect", () => {
 -    utils.changeTableButtonStates(dhcpLeaesTable);
++  $("#DHCPLeasesTable").on("column-reorder.dt", () => dhcpLeasesTable.draw(false));
 +  $("#DHCPLeasesTable .lease-toggle").on("click", function (event) {
 +    event.stopPropagation();
 +    if (event.originalEvent?.detail > 0) this.blur();
@@ -543,8 +551,11 @@ index 27adb7b..4128431 100644
 +function enableAddressCopy(cell) {
 +  if (!cell.text().trim() || cell.text().trim() === "*") return;
 +  cell.attr({ "data-copy-address": "", tabindex: 0, role: "button", title: "Copy address" });
-+}
-+
+ }
+ 
+-function delLease(ip) {
+-  utils.disableAll();
+-  toasts[ip] = utils.showAlert("info", "", "Deleting lease...", ip, null);
 +async function copyLeaseValue() {
 +  const cell = $(this).closest("td");
 +  cell.find(".lease-copy-feedback").remove();
@@ -573,20 +584,6 @@ index 27adb7b..4128431 100644
 +  feedback.text("Copied");
 +  setTimeout(() => feedback.remove(), 1200);
 +}
-+
-+function staticAddressCopyMode(row) {
-+  if (!staticHostsReadOnly) row.find(".static-hostname").attr("contenteditable", "true");
-+  row.find(".static-ipaddr, .static-hwaddr").removeAttr("contenteditable");
-+  enableAddressCopy(row.find(".static-hwaddr"));
- }
- 
--function delLease(ip) {
--  utils.disableAll();
--  toasts[ip] = utils.showAlert("info", "", "Deleting lease...", ip, null);
-+async function deleteLease() {
-+  const ip = $(this).attr("data-del-ip");
-+  const table = $(dhcpLeasesTable.table().container());
-+  if (table.prop("inert") || !globalThis.confirm("Delete the active DHCP lease for " + ip + "?")) return;
  
 -  $.ajax({
 -    url: document.body.dataset.apiurl + "/dhcp/leases/" + encodeURIComponent(ip),
@@ -612,12 +609,10 @@ index 27adb7b..4128431 100644
 -          toasts[ip]
 -        );
 -      }
-+  table.prop("inert", true);
-+  try {
-+    if (await delLease(ip)) dhcpLeasesTable.ajax.reload(null, false);
-+  } finally {
-+    table.prop("inert", false);
-+  }
++function staticAddressCopyMode(row) {
++  if (!staticHostsReadOnly) row.find(".static-hostname").attr("contenteditable", "true");
++  row.find(".static-ipaddr, .static-hwaddr").removeAttr("contenteditable");
++  enableAddressCopy(row.find(".static-hwaddr"));
 +}
  
 -      // Clear selection after deletion
@@ -634,6 +629,19 @@ index 27adb7b..4128431 100644
 -        toasts[ip]
 -      );
 -      console.log(exception); // eslint-disable-line no-console
++async function deleteLease() {
++  const ip = $(this).attr("data-del-ip");
++  const table = $(dhcpLeasesTable.table().container());
++  if (table.prop("inert") || !globalThis.confirm("Delete the active DHCP lease for " + ip + "?")) return;
++
++  table.prop("inert", true);
++  try {
++    if (await delLease(ip)) dhcpLeasesTable.ajax.reload(null, false);
++  } finally {
++    table.prop("inert", false);
++  }
++}
++
 +async function delLease(ip) {
 +  const toast = utils.showAlert("info", "", "Deleting lease...", ip, null);
 +  let response;
@@ -800,11 +808,8 @@ index 27adb7b..4128431 100644
 +      close(); return;
 +    }
 +    const line = [current.identity, current.ipaddr, name].filter(Boolean).join(",");
-+    if (current.index !== undefined) current.lines[current.index] = line;
-+    else {
-+      if (!current.lines.at(-1)) current.lines.pop();
-+      current.lines.push(line);
-+    }
++    if (current.index === undefined && current.lines.at(-1) === "") current.lines.pop();
++    stageHostname(current.lines, current.index ?? current.lines.length, line, value, name);
 +    cell.find("input").off("blur");
 +    $("#dhcp-hosts").val(current.lines.join("\n")).trigger("input");
 +  }, close);
@@ -845,8 +850,29 @@ index 27adb7b..4128431 100644
 +  return field.type === "checkbox" ? field.checked : field.value;
 +}
 +
++// Keep the original reported name for dynamic leases that had no saved host line.
++const pendingRenames = new Map();
++
++function stageHostname(lines, index, line, previous, name) {
++  const originalLine = lines[index];
++  const baseline = savedDHCPValues?.get(document.getElementById("dhcp-hosts"))?.split("\n") || [];
++  const original = pendingRenames.get(originalLine) ||
++    { line: originalLine, name: previous };
++  pendingRenames.delete(originalLine);
++  if (name === original.name) {
++    if (original.line === undefined) lines.splice(index, 1);
++    else lines[index] = original.line;
++  } else {
++    lines[index] = line;
++    if (original.line === undefined || baseline.includes(original.line))
++      pendingRenames.set(line, { ...original, latest: name });
++  }
+ }
+ 
 +function updatePendingDHCP() {
 +  if (!savedDHCPValues) return;
++  const currentLines = new Set($("#dhcp-hosts").val().split("\n"));
++  for (const line of pendingRenames.keys()) if (!currentLines.has(line)) pendingRenames.delete(line);
 +  const messages = [];
 +  for (const [field, before] of savedDHCPValues) {
 +    const after = dhcpValue(field);
@@ -859,6 +885,12 @@ index 27adb7b..4128431 100644
 +      count(before, -1);
 +      count(after, 1);
 +      const start = messages.length;
++      for (const [line, rename] of pendingRenames) {
++        if (!(counts.get(line) > 0) || (rename.line !== undefined && !(counts.get(rename.line) < 0))) continue;
++        counts.set(line, counts.get(line) - 1);
++        if (rename.line !== undefined) counts.set(rename.line, counts.get(rename.line) + 1);
++        messages.push((rename.name || "(unnamed)") + " → " + (rename.latest || "(unnamed)"));
++      }
 +      for (const [line, delta] of counts) {
 +        if (delta) messages.push((delta > 0 ? "Add host: " : "Remove host: ") + line +
 +          (Math.abs(delta) > 1 ? " (" + Math.abs(delta) + ")" : ""));
@@ -874,12 +906,13 @@ index 27adb7b..4128431 100644
 +  const panel = $("#dhcp-pending");
 +  panel.find("ul").empty().append(messages.map(message => $("<li>").text(message)[0]));
 +  panel.prop("hidden", messages.length === 0);
- }
- 
++}
++
 +$(document).on("input change", "[data-key^='dhcp.']", updatePendingDHCP);
 +$(document).on("ajaxSuccess", (_event, _xhr, request) => {
 +  if (request.type !== "PATCH" || request.url !== document.body.dataset.apiurl + "/config" || !savedDHCPValues) return;
 +  const submitted = JSON.parse(request.data).config.dhcp;
++  pendingRenames.clear();
 +  for (const field of savedDHCPValues.keys()) {
 +    const key = field.dataset.key.slice(5);
 +    if (Object.hasOwn(submitted, key)) {
@@ -905,7 +938,7 @@ index 27adb7b..4128431 100644
      })
      .fail(data => {
        apiFailure(data);
-@@ -237,7 +750,7 @@ function processDHCPConfig() {
+@@ -237,7 +783,7 @@ function processDHCPConfig() {
  
  function parseStaticDHCPLine(line) {
    // Accepts: [hwaddr][,ipaddr][,hostname] (all optional, comma-separated, no advanced tokens)
@@ -914,7 +947,7 @@ index 27adb7b..4128431 100644
  
    // If the line is empty, return an object with empty fields
    if (!line.trim())
-@@ -264,7 +777,7 @@ function parseStaticDHCPLine(line) {
+@@ -264,7 +810,7 @@ function parseStaticDHCPLine(line) {
      // Advanced if the part is "infinite", "ignore" or a lease time value
      if (/^(infinite|ignore|\d+(w|W|d|D|h|H|m|M|s|S))$/u.test(part)) return "advanced";
  
@@ -923,7 +956,7 @@ index 27adb7b..4128431 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +813,51 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +846,51 @@ function parseStaticDHCPLine(line) {
    };
  }
  
@@ -978,7 +1011,7 @@ index 27adb7b..4128431 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,10 +870,13 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,10 +903,17 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -989,13 +1022,17 @@ index 27adb7b..4128431 100644
 +    utils.showAlert("error", "", "Empty reservation", "Use Delete reservation to remove this entry.");
 +    return;
 +  }
-+  lines[rowIdx] = [hwaddr, ip, hostname].filter(Boolean).join(",");
++  const line = [hwaddr, ip, hostname].filter(Boolean).join(",");
++  const previous = parseStaticDHCPLine(lines[rowIdx]);
++  if (previous.hwaddr === hwaddr && previous.ipaddr === ip && previous.hostname !== hostname)
++    stageHostname(lines, rowIdx, line, previous.hostname, hostname);
++  else lines[rowIdx] = line;
    $("#dhcp-hosts").val(lines.join("\n"));
 +  updateStaticLeaseKeys(lines);
  
    // Update "data-original-line" to containing the new saved values
    row.attr("data-original-line", lines[rowIdx]);
-@@ -337,19 +887,26 @@ $(document).on("click", ".save-static-row", function () {
+@@ -337,19 +924,26 @@ $(document).on("click", ".save-static-row", function () {
    // then remove highlight colors from all cells on this row
    $("td", row).blur();
  
@@ -1029,7 +1066,7 @@ index 27adb7b..4128431 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -369,16 +926,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -369,16 +963,15 @@ $(document).on("click", ".cancel-static-row", function () {
    // Trigger "blur" event to remove highlight colors and titles from all cells on this row
    row.find(".static-hwaddr, .static-ipaddr, .static-hostname").blur();
  
@@ -1050,7 +1087,7 @@ index 27adb7b..4128431 100644
    }
  });
  
-@@ -386,6 +942,14 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +979,14 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1065,7 +1102,7 @@ index 27adb7b..4128431 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,44 +957,146 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,44 +994,155 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -1077,12 +1114,19 @@ index 27adb7b..4128431 100644
 -  $("#dhcp-hosts").val(lines.join("\n"));
 -  // Hide the tooltip
 -  $(this).tooltip("hide");
++// DataTables expects new DOM rows in the current display order.
++function orderStaticCells(row) {
++  const cells = Array.from(row[0].cells);
++  for (const index of staticDHCPTable.colReorder.order()) row[0].appendChild(cells[index]);
++}
++
 +function startStaticReservationDraft(values = { hwaddr: "", ipaddr: "", hostname: "" }) {
 +  const table = $("#StaticDHCPTable");
 +  if (staticHostsReadOnly || staticLeaseKeys === null || pendingStaticReservation || table.find(".save-static-row").length) return;
 +
 +  const row = $('<tr class="static-reservation-draft"></tr>')
 +    .append(...staticReservationCells(values), $('<td class="actions"></td>'));
++  orderStaticCells(row);
 +  pendingStaticReservation = values;
 +
 +  staticDHCPTable.page("last").draw("page");
@@ -1173,7 +1217,9 @@ index 27adb7b..4128431 100644
 +  };
 +
 +  staticDHCPTable = table.DataTable({
++    colReorder: { realtime: false },
 +    select: false,
++    stateSave: true,
 +    autoWidth: false,
 +    order: [[0, "asc"]],
 +    columnDefs: [
@@ -1234,18 +1280,19 @@ index 27adb7b..4128431 100644
      const idx = row.attr("data-row");
      const saveBtn = $(
        '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
-@@ -445,80 +1111,90 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +1157,91 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
 -    // Add the save button to the actions column
+-    row.find("td").last().prepend(saveBtn, " ", cancelBtn, " ");
 +    if (row.hasClass("static-reservation-draft")) {
 +      saveBtn.attr("aria-label", "Confirm").attr("title", "Confirm reservation");
 +      cancelBtn.attr("aria-label", "Cancel").attr("title", "Cancel reservation");
 +    }
 +
 +    // Add the save and cancel buttons to the actions column.
-     row.find("td").last().prepend(saveBtn, " ", cancelBtn, " ");
++    row.find("td.actions").prepend(saveBtn, " ", cancelBtn, " ");
  
 -    // Disable the textarea to avoid losing unsaved changes to the table
 -    $("#dhcp-hosts").prop("disabled", true);
@@ -1350,6 +1397,7 @@ index 27adb7b..4128431 100644
 +    tr.append(actions);
  
 -    tbody.append(tr);
++    orderStaticCells(tr);
 +    rows.push(tr[0]);
    }
  
@@ -1365,7 +1413,7 @@ index 27adb7b..4128431 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +1207,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1254,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1382,7 +1430,7 @@ index 27adb7b..4128431 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1274,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1321,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1391,7 +1439,7 @@ index 27adb7b..4128431 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1283,37 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1330,37 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  
@@ -1435,16 +1483,16 @@ index 27adb7b..4128431 100644
 +      input.setCustomValidity("Enter a DHCP hostname."); input.reportValidity();
 +      input.setCustomValidity(""); return;
 +    }
-+    lines[idx] = line;
++    stageHostname(lines, idx, line, previous, name);
 +    cell.find("input").off("blur");
 +    $("#dhcp-hosts").val(lines.join("\n")).trigger("input");
 +  }, close);
  });
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..534c765 100644
+index 1cbc347..4b2a9ff 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -12,14 +12,76 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -12,14 +12,87 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  -- Page title and level selector
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
@@ -1499,7 +1547,7 @@ index 1cbc347..534c765 100644
 +    }
 +    .lease-expiration > span { background: currentColor; }
 +    .lease-expiration.unknown-duration { border-style: dashed; }
-+    #DHCPLeasesTable:is(.client-ids-collapsed,.mac-collapsed) thead th { width: auto !important; }
++    #DHCPLeasesTable thead th { width: auto !important; }
 +    #DHCPLeasesTable.client-ids-collapsed .lease-client-heading,
 +    #DHCPLeasesTable.client-ids-collapsed .lease-client-cell,
 +    #DHCPLeasesTable.mac-collapsed .lease-mac-heading,
@@ -1510,6 +1558,17 @@ index 1cbc347..534c765 100644
 +    #dhcp-pending[hidden] { display: none; }
 +    #dhcp-pending { max-width: min(32em, calc(100vw - 2em)); }
 +    #dhcp-pending ul { max-height: 24vh; overflow: auto; overflow-wrap: anywhere; padding-left: 2.5em; margin-right: 1em; }
++    #DHCPLeasesTable thead th.lease-activity, #DHCPLeasesTable td.lease-activity {
++        box-sizing: content-box; width: 120px !important; min-width: 120px;
++    }
++    #StaticDHCPTable :is(th,td):last-of-type:not(.actions) { width: calc((100% - 122px) / 3); text-align: left; }
++    #StaticDHCPTable :is(th,td).actions { width: 122px; text-align: right; }
++    .DTCR_clonedTable, .DTCR_pointer { z-index: 1050; pointer-events: none; }
++    .DTCR_pointer { width: 2px; background: currentColor; }
++    :is(#DHCPLeasesTable,#StaticDHCPTable) > :is(tbody,tfoot) > tr > td {
++        box-sizing: border-box; height: 46px; padding-block: 6px; vertical-align: middle;
++    }
++    #DHCPLeasesTable .query-activity-chart { display: block; }
 +</style>
  <div class="row">
      <!-- DHCP Settings Box -->
@@ -1524,7 +1583,7 @@ index 1cbc347..534c765 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +146,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +157,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1542,7 +1601,7 @@ index 1cbc347..534c765 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,29 +193,30 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,29 +204,30 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1577,11 +1636,11 @@ index 1cbc347..534c765 100644
 -                                    <th>Client ID</th>
 +                                    <th class="lease-mac-heading" data-dt-order="disable"><?=leaseToggle('MAC address', 'MAC', 'mac-collapsed')?></th>
 +                                    <th class="lease-client-heading" data-dt-order="disable"><?=leaseToggle('Client ID', 'CID', 'client-ids-collapsed')?></th>
-+                                    <th>DNS activity (24h)</th>
++                                    <th class="lease-activity">DNS activity (24h)</th>
                                      <td></td>
                                  </tr>
                              </thead>
-@@ -163,13 +226,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,13 +237,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1599,18 +1658,20 @@ index 1cbc347..534c765 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -177,9 +240,9 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -177,10 +251,10 @@ mg.include('scripts/lua/settings_header.lp','r')
                              <table id="StaticDHCPTable" class="table table-striped table-bordered nowrap" width="100%">
                                  <thead>
                                      <tr>
 -                                        <th>MAC address</th>
                                          <th>IP address</th>
                                          <th>Hostname</th>
+-                                        <th>Actions</th>
 +                                        <th>MAC address</th>
-                                         <th>Actions</th>
++                                        <th class="actions">Actions</th>
                                      </tr>
                                  </thead>
-@@ -190,6 +253,15 @@ mg.include('scripts/lua/settings_header.lp','r')
+                                 <tbody>
+@@ -190,6 +264,15 @@ mg.include('scripts/lua/settings_header.lp','r')
                          </div>
                      </div>
                  </div>
@@ -1626,7 +1687,7 @@ index 1cbc347..534c765 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +282,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +293,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -1635,7 +1696,7 @@ index 1cbc347..534c765 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,12 +323,22 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,13 +334,24 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1658,5 +1719,53 @@ index 1cbc347..534c765 100644
 +    </div>
 +</template>
  <script src="<?=pihole.fileversion('vendor/bootstrap-toggle/bootstrap-toggle.min.js')?>"></script>
++<script src="<?=pihole.fileversion('vendor/datatables/dataTables.colReorder.min.js')?>"></script>
  <script src="<?=pihole.fileversion('scripts/js/settings-dhcp.js')?>"></script>
  <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>
+ <script src="<?=pihole.fileversion('scripts/js/settings.js')?>"></script>
+diff --git a/vendor/datatables/dataTables.colReorder.min.js b/vendor/datatables/dataTables.colReorder.min.js
+new file mode 100644
+index 0000000..f0febbc
+--- /dev/null
++++ b/vendor/datatables/dataTables.colReorder.min.js
+@@ -0,0 +1,40 @@
++/*!
++   SpryMedia Ltd.
++
++ This source file is free software, available under the following license:
++   MIT license - http://datatables.net/license/mit
++
++ This source file is distributed in the hope that it will be useful, but
++ WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
++ or FITNESS FOR A PARTICULAR PURPOSE. See the license files for details.
++
++ For details please refer to: http://www.datatables.net
++ ColReorder 1.5.6
++ ©2010-2022 SpryMedia Ltd - datatables.net/license
++*/
++(function(e){"function"===typeof define&&define.amd?define(["jquery","datatables.net"],function(u){return e(u,window,document)}):"object"===typeof exports?module.exports=function(u,t){u||(u=window);t&&t.fn.dataTable||(t=require("datatables.net")(u,t).$);return e(t,u,u.document)}:e(jQuery,window,document)})(function(e,u,t,z){function y(a){for(var b=[],c=0,f=a.length;c<f;c++)b[a[c]]=c;return b}function v(a,b,c){b=a.splice(b,1)[0];a.splice(c,0,b)}function A(a,b,c){for(var f=[],h=0,g=a.childNodes.length;h<
++g;h++)1==a.childNodes[h].nodeType&&f.push(a.childNodes[h]);b=f[b];null!==c?a.insertBefore(b,f[c]):a.appendChild(b)}var D=e.fn.dataTable;e.fn.dataTableExt.oApi.fnColReorder=function(a,b,c,f,h){var g,m,k=a.aoColumns.length;var p=function(w,x,E){if(w[x]&&"function"!==typeof w[x]){var B=w[x].split("."),C=B.shift();isNaN(1*C)||(w[x]=E[1*C]+"."+B.join("."))}};if(b!=c)if(0>b||b>=k)this.oApi._fnLog(a,1,"ColReorder 'from' index is out of bounds: "+b);else if(0>c||c>=k)this.oApi._fnLog(a,1,"ColReorder 'to' index is out of bounds: "+
++c);else{var l=[];var d=0;for(g=k;d<g;d++)l[d]=d;v(l,b,c);var q=y(l);d=0;for(g=a.aaSorting.length;d<g;d++)a.aaSorting[d][0]=q[a.aaSorting[d][0]];if(null!==a.aaSortingFixed)for(d=0,g=a.aaSortingFixed.length;d<g;d++)a.aaSortingFixed[d][0]=q[a.aaSortingFixed[d][0]];d=0;for(g=k;d<g;d++){var n=a.aoColumns[d];l=0;for(m=n.aDataSort.length;l<m;l++)n.aDataSort[l]=q[n.aDataSort[l]];n.idx=q[n.idx]}e.each(a.aLastSort,function(w,x){a.aLastSort[w].src=q[x.src]});d=0;for(g=k;d<g;d++)n=a.aoColumns[d],"number"==typeof n.mData?
++n.mData=q[n.mData]:e.isPlainObject(n.mData)&&(p(n.mData,"_",q),p(n.mData,"filter",q),p(n.mData,"sort",q),p(n.mData,"type",q));if(a.aoColumns[b].bVisible){p=this.oApi._fnColumnIndexToVisible(a,b);m=null;for(d=c<b?c:c+1;null===m&&d<k;)m=this.oApi._fnColumnIndexToVisible(a,d),d++;l=a.nTHead.getElementsByTagName("tr");d=0;for(g=l.length;d<g;d++)A(l[d],p,m);if(null!==a.nTFoot)for(l=a.nTFoot.getElementsByTagName("tr"),d=0,g=l.length;d<g;d++)A(l[d],p,m);d=0;for(g=a.aoData.length;d<g;d++)null!==a.aoData[d].nTr&&
++A(a.aoData[d].nTr,p,m)}v(a.aoColumns,b,c);d=0;for(g=k;d<g;d++)a.oApi._fnColumnOptions(a,d,{});v(a.aoPreSearchCols,b,c);d=0;for(g=a.aoData.length;d<g;d++){m=a.aoData[d];if(n=m.anCells)for(v(n,b,c),l=0,p=n.length;l<p;l++)n[l]&&n[l]._DT_CellIndex&&(n[l]._DT_CellIndex.column=l);Array.isArray(m._aData)&&v(m._aData,b,c)}d=0;for(g=a.aoHeader.length;d<g;d++)v(a.aoHeader[d],b,c);if(null!==a.aoFooter)for(d=0,g=a.aoFooter.length;d<g;d++)v(a.aoFooter[d],b,c);(h||h===z)&&e.fn.dataTable.Api(a).rows().invalidate("data");
++d=0;for(g=k;d<g;d++)e(a.aoColumns[d].nTh).off(".DT"),this.oApi._fnSortAttachListener(a,a.aoColumns[d].nTh,d);e(a.oInstance).trigger("column-reorder.dt",[a,{from:b,to:c,mapping:q,drop:f,iFrom:b,iTo:c,aiInvertMapping:q}])}};var r=function(a,b){a=(new e.fn.dataTable.Api(a)).settings()[0];if(a._colReorder)return a._colReorder;!0===b&&(b={});var c=e.fn.dataTable.camelToHungarian;c&&(c(r.defaults,r.defaults,!0),c(r.defaults,b||{}));this.s={dt:null,enable:null,init:e.extend(!0,{},r.defaults,b),fixed:0,fixedRight:0,
++reorderCallback:null,mouse:{startX:-1,startY:-1,offsetX:-1,offsetY:-1,target:-1,targetIndex:-1,fromIndex:-1},aoTargets:[]};this.dom={drag:null,pointer:null};this.s.enable=this.s.init.bEnable;this.s.dt=a;this.s.dt._colReorder=this;this._fnConstruct();return this};e.extend(r.prototype,{fnEnable:function(a){if(!1===a)return fnDisable();this.s.enable=!0},fnDisable:function(){this.s.enable=!1},fnReset:function(){this._fnOrderColumns(this.fnOrder());return this},fnGetCurrentOrder:function(){return this.fnOrder()},
++fnOrder:function(a,b){var c=[],f,h=this.s.dt.aoColumns;if(a===z){b=0;for(f=h.length;b<f;b++)c.push(h[b]._ColReorder_iOrigCol);return c}if(b){h=this.fnOrder();b=0;for(f=a.length;b<f;b++)c.push(e.inArray(a[b],h));a=c}this._fnOrderColumns(y(a));return this},fnTranspose:function(a,b){b||(b="toCurrent");var c=this.fnOrder(),f=this.s.dt.aoColumns;return"toCurrent"===b?Array.isArray(a)?e.map(a,function(h){return e.inArray(h,c)}):e.inArray(a,c):Array.isArray(a)?e.map(a,function(h){return f[h]._ColReorder_iOrigCol}):
++f[a]._ColReorder_iOrigCol},_fnConstruct:function(){var a=this,b=this.s.dt.aoColumns.length,c=this.s.dt.nTable,f;this.s.init.iFixedColumns&&(this.s.fixed=this.s.init.iFixedColumns);this.s.init.iFixedColumnsLeft&&(this.s.fixed=this.s.init.iFixedColumnsLeft);this.s.fixedRight=this.s.init.iFixedColumnsRight?this.s.init.iFixedColumnsRight:0;this.s.init.fnReorderCallback&&(this.s.reorderCallback=this.s.init.fnReorderCallback);for(f=0;f<b;f++)f>this.s.fixed-1&&f<b-this.s.fixedRight&&this._fnMouseListener(f,
++this.s.dt.aoColumns[f].nTh),this.s.dt.aoColumns[f]._ColReorder_iOrigCol=f;this.s.dt.oApi._fnCallbackReg(this.s.dt,"aoStateSaveParams",function(m,k){a._fnStateSave.call(a,k)},"ColReorder_State");this.s.dt.oApi._fnCallbackReg(this.s.dt,"aoStateLoadParams",function(m,k){a.s.dt._colReorder.fnOrder(k.ColReorder,!0)});var h=null;this.s.init.aiOrder&&(h=this.s.init.aiOrder.slice());this.s.dt.oLoadedState&&"undefined"!=typeof this.s.dt.oLoadedState.ColReorder&&this.s.dt.oLoadedState.ColReorder.length==this.s.dt.aoColumns.length&&
++(h=this.s.dt.oLoadedState.ColReorder);if(h)if(a.s.dt._bInitComplete)b=y(h),a._fnOrderColumns.call(a,b);else{var g=!1;e(c).on("draw.dt.colReorder",function(){if(!a.s.dt._bInitComplete&&!g){g=!0;var m=y(h);a._fnOrderColumns.call(a,m)}})}else this._fnSetColumnIndexes();e(c).on("destroy.dt.colReorder",function(){e(c).off("destroy.dt.colReorder draw.dt.colReorder");e.each(a.s.dt.aoColumns,function(m,k){e(k.nTh).off(".ColReorder");e(k.nTh).removeAttr("data-column-index")});a.s.dt._colReorder=null;a.s=null})},
++_fnOrderColumns:function(a){var b=!1;if(a.length!=this.s.dt.aoColumns.length)this.s.dt.oInstance.oApi._fnLog(this.s.dt,1,"ColReorder - array reorder does not match known number of columns. Skipping.");else{for(var c=0,f=a.length;c<f;c++){var h=e.inArray(c,a);c!=h&&(v(a,h,c),this.s.dt.oInstance.fnColReorder(h,c,!0,!1),b=!0)}this._fnSetColumnIndexes();b&&(e.fn.dataTable.Api(this.s.dt).rows().invalidate("data"),""===this.s.dt.oScroll.sX&&""===this.s.dt.oScroll.sY||this.s.dt.oInstance.fnAdjustColumnSizing(!1),
++this.s.dt.oInstance.oApi._fnSaveState(this.s.dt),null!==this.s.reorderCallback&&this.s.reorderCallback.call(this))}},_fnStateSave:function(a){if(null!==this.s){var b,c,f=this.s.dt.aoColumns;a.ColReorder=[];if(a.aaSorting){for(b=0;b<a.aaSorting.length;b++)a.aaSorting[b][0]=f[a.aaSorting[b][0]]._ColReorder_iOrigCol;var h=e.extend(!0,[],a.aoSearchCols);b=0;for(c=f.length;b<c;b++){var g=f[b]._ColReorder_iOrigCol;a.aoSearchCols[g]=h[b];a.abVisCols[g]=f[b].bVisible;a.ColReorder.push(g)}}else if(a.order){for(b=
++0;b<a.order.length;b++)a.order[b][0]=f[a.order[b][0]]._ColReorder_iOrigCol;h=e.extend(!0,[],a.columns);b=0;for(c=f.length;b<c;b++)g=f[b]._ColReorder_iOrigCol,a.columns[g]=h[b],a.ColReorder.push(g)}}},_fnMouseListener:function(a,b){var c=this;e(b).on("mousedown.ColReorder",function(f){c.s.enable&&1===f.which&&c._fnMouseDown.call(c,f,b)}).on("touchstart.ColReorder",function(f){c.s.enable&&c._fnMouseDown.call(c,f,b)})},_fnMouseDown:function(a,b){var c=this,f=e(a.target).closest("th, td").offset();b=
++parseInt(e(b).attr("data-column-index"),10);b!==z&&(this.s.mouse.startX=this._fnCursorPosition(a,"pageX"),this.s.mouse.startY=this._fnCursorPosition(a,"pageY"),this.s.mouse.offsetX=this._fnCursorPosition(a,"pageX")-f.left,this.s.mouse.offsetY=this._fnCursorPosition(a,"pageY")-f.top,this.s.mouse.target=this.s.dt.aoColumns[b].nTh,this.s.mouse.targetIndex=b,this.s.mouse.fromIndex=b,this._fnRegions(),e(t).on("mousemove.ColReorder touchmove.ColReorder",function(h){c._fnMouseMove.call(c,h)}).on("mouseup.ColReorder touchend.ColReorder",
++function(h){c._fnMouseUp.call(c,h)}))},_fnMouseMove:function(a){var b=this;if(null===this.dom.drag){if(5>Math.pow(Math.pow(this._fnCursorPosition(a,"pageX")-this.s.mouse.startX,2)+Math.pow(this._fnCursorPosition(a,"pageY")-this.s.mouse.startY,2),.5))return;this._fnCreateDragNode()}this.dom.drag.css({left:this._fnCursorPosition(a,"pageX")-this.s.mouse.offsetX,top:this._fnCursorPosition(a,"pageY")-this.s.mouse.offsetY});var c=this.s.mouse.toIndex;a=this._fnCursorPosition(a,"pageX");for(var f=function(d){for(;0<=
++d;){d--;if(0>=d)return null;if(b.s.aoTargets[d+1].x!==b.s.aoTargets[d].x)return b.s.aoTargets[d]}},h=function(){for(var d=0;d<b.s.aoTargets.length-1;d++)if(b.s.aoTargets[d].x!==b.s.aoTargets[d+1].x)return b.s.aoTargets[d]},g=function(){for(var d=b.s.aoTargets.length-1;0<d;d--)if(b.s.aoTargets[d].x!==b.s.aoTargets[d-1].x)return b.s.aoTargets[d]},m=1;m<this.s.aoTargets.length;m++){var k=f(m);k||(k=h());var p=k.x+(this.s.aoTargets[m].x-k.x)/2;if(this._fnIsLtr()){if(a<p){var l=k;break}}else if(a>p){l=
++k;break}}l?(this.dom.pointer.css("left",l.x),this.s.mouse.toIndex=l.to):(this.dom.pointer.css("left",g().x),this.s.mouse.toIndex=g().to);this.s.init.bRealtime&&c!==this.s.mouse.toIndex&&(this.s.dt.oInstance.fnColReorder(this.s.mouse.fromIndex,this.s.mouse.toIndex),this.s.mouse.fromIndex=this.s.mouse.toIndex,""===this.s.dt.oScroll.sX&&""===this.s.dt.oScroll.sY||this.s.dt.oInstance.fnAdjustColumnSizing(!1),this._fnRegions())},_fnMouseUp:function(a){e(t).off(".ColReorder");null!==this.dom.drag&&(this.dom.drag.remove(),
++this.dom.pointer.remove(),this.dom.drag=null,this.dom.pointer=null,this.s.dt.oInstance.fnColReorder(this.s.mouse.fromIndex,this.s.mouse.toIndex,!0),this._fnSetColumnIndexes(),""===this.s.dt.oScroll.sX&&""===this.s.dt.oScroll.sY||this.s.dt.oInstance.fnAdjustColumnSizing(!1),this.s.dt.oInstance.oApi._fnSaveState(this.s.dt),null!==this.s.reorderCallback&&this.s.reorderCallback.call(this))},_fnRegions:function(){var a=this.s.dt.aoColumns,b=this._fnIsLtr();this.s.aoTargets.splice(0,this.s.aoTargets.length);
++var c=e(this.s.dt.nTable).offset().left,f=[];e.each(a,function(m,k){if(k.bVisible&&"none"!==k.nTh.style.display){k=e(k.nTh);var p=k.offset().left;b&&(p+=k.outerWidth());f.push({index:m,bound:p});c=p}else f.push({index:m,bound:c})});var h=f[0];a=e(a[h.index].nTh).outerWidth();this.s.aoTargets.push({to:0,x:h.bound-a});for(h=0;h<f.length;h++){a=f[h];var g=a.index;a.index<this.s.mouse.fromIndex&&g++;this.s.aoTargets.push({to:g,x:a.bound})}0!==this.s.fixedRight&&this.s.aoTargets.splice(this.s.aoTargets.length-
++this.s.fixedRight);0!==this.s.fixed&&this.s.aoTargets.splice(0,this.s.fixed)},_fnCreateDragNode:function(){var a=""!==this.s.dt.oScroll.sX||""!==this.s.dt.oScroll.sY,b=this.s.dt.aoColumns[this.s.mouse.targetIndex].nTh,c=b.parentNode,f=c.parentNode,h=f.parentNode,g=e(b).clone();this.dom.drag=e(h.cloneNode(!1)).addClass("DTCR_clonedTable").append(e(f.cloneNode(!1)).append(e(c.cloneNode(!1)).append(g[0]))).css({position:"absolute",top:0,left:0,width:e(b).outerWidth(),height:e(b).outerHeight()}).appendTo("body");
++this.dom.pointer=e("<div></div>").addClass("DTCR_pointer").css({position:"absolute",top:a?e(e(this.s.dt.nScrollBody).parent()).offset().top:e(this.s.dt.nTable).offset().top,height:a?e(e(this.s.dt.nScrollBody).parent()).height():e(this.s.dt.nTable).height()}).appendTo("body")},_fnSetColumnIndexes:function(){e.each(this.s.dt.aoColumns,function(a,b){e(b.nTh).attr("data-column-index",a)})},_fnCursorPosition:function(a,b){return-1!==a.type.indexOf("touch")?a.originalEvent.touches[0][b]:a[b]},_fnIsLtr:function(){return"rtl"!==
++e(this.s.dt.nTable).css("direction")}});r.defaults={aiOrder:null,bEnable:!0,bRealtime:!0,iFixedColumnsLeft:0,iFixedColumnsRight:0,fnReorderCallback:null};r.version="1.5.6";e.fn.dataTable.ColReorder=r;e.fn.DataTable.ColReorder=r;"function"==typeof e.fn.dataTable&&"function"==typeof e.fn.dataTableExt.fnVersionCheck&&e.fn.dataTableExt.fnVersionCheck("1.10.8")?e.fn.dataTableExt.aoFeatures.push({fnInit:function(a){var b=a.oInstance;a._colReorder?b.oApi._fnLog(a,1,"ColReorder attempted to initialise twice. Ignoring second"):
++(b=a.oInit,new r(a,b.colReorder||b.oColReorder||{}));return null},cFeature:"R",sFeature:"ColReorder"}):alert("Warning: ColReorder requires DataTables 1.10.8 or greater - www.datatables.net/download");e(t).on("preInit.dt.colReorder",function(a,b){if("dt"===a.namespace){a=b.oInit.colReorder;var c=D.defaults.colReorder;if(a||c)c=e.extend({},a,c),!1!==a&&new r(b,c)}});e.fn.dataTable.Api.register("colReorder.reset()",function(){return this.iterator("table",function(a){a._colReorder.fnReset()})});e.fn.dataTable.Api.register("colReorder.order()",
++function(a,b){return a?this.iterator("table",function(c){c._colReorder.fnOrder(a,b)}):this.context.length?this.context[0]._colReorder.fnOrder():null});e.fn.dataTable.Api.register("colReorder.transpose()",function(a,b){return this.context.length&&this.context[0]._colReorder?this.context[0]._colReorder.fnTranspose(a,b):a});e.fn.dataTable.Api.register("colReorder.move()",function(a,b,c,f){this.context.length&&(this.context[0]._colReorder.s.dt.oInstance.fnColReorder(a,b,c,f),this.context[0]._colReorder._fnSetColumnIndexes());
++return this});e.fn.dataTable.Api.register("colReorder.enable()",function(a){return this.iterator("table",function(b){b._colReorder&&b._colReorder.fnEnable(a)})});e.fn.dataTable.Api.register("colReorder.disable()",function(){return this.iterator("table",function(a){a._colReorder&&a._colReorder.fnDisable()})});return r});
