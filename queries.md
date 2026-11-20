@@ -6,7 +6,7 @@ Open **Query Log** from the Pi-hole sidebar. If you also use the DHCP patch, sel
 
 Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
 
-![Grouped Recent Queries with the All filter active. The Count column shows the largest groups first.](assets/grouped-query-log.png)
+![Grouped Recent Queries with the All filter active. The Count column shows the largest groups first.](assets/grouped-query-log.jpg)
 
 In this example, one client sent 240 A queries and 185 AAAA queries for `calendar.example`. Each query type has its own row. The example uses fictional data.
 

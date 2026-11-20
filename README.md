@@ -31,7 +31,7 @@ Select the eye beside an active lease or static reservation to see queries from 
 
 The DHCP page opens in Expert mode. Select a section heading to expand or collapse it.
 
-![DHCP Settings with all five sections collapsed](assets/dhcp-sections-collapsed.png)
+![DHCP Settings with all five sections collapsed](assets/dhcp-sections-collapsed.jpg)
 
 ### Create a static reservation
 
@@ -40,11 +40,11 @@ The DHCP page opens in Expert mode. Select a section heading to expand or collap
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
 4. Select **Save & Apply** to save the confirmed reservation.
 
-![Active DHCP leases. The bottom three leases can be added to the static list.](assets/active-dhcp-leases.png)
+![Active DHCP leases. The bottom three leases can be added to the static list.](assets/active-dhcp-leases.jpg)
 
 In this example, the top three devices already have reservations. The bottom three have a **+** button.
 
-![Static DHCP configuration with IP address, hostname, MAC address, and action columns](assets/static-dhcp-reservations.png)
+![Static DHCP configuration with IP address, hostname, MAC address, and action columns](assets/static-dhcp-reservations.jpg)
 
 Search or sort reservations by IP address, hostname, or MAC address. To edit the entries as text, open **Manual Edit Static DHCP Entries**. Pi-hole asks for confirmation when you delete a lease or reservation.
 
