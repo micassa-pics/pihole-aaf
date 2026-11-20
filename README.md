@@ -12,7 +12,7 @@ Open the install page, copy the full prompt, and paste it into your LLM. It asks
 
 - Open the page in Expert mode. Toggle each settings or lease section by its heading.
 - Search, sort, and page through static reservations by IP address, hostname, or MAC address.
-- Use **+** beside an eligible active lease to open an editable reservation draft. **Confirm** stages it for **Save & Apply**. The eye opens queries for that client.
+- Use **+** beside an eligible active lease to open an editable reservation draft. Select the checkmark to stage it for **Save & Apply**, or the curved arrow to cancel. The eye opens queries for that client.
 - Confirm lease deletions and expand **Manual Edit Static DHCP Entries** for advanced configurations.
 
 ![Six active DHCP leases. The bottom three have a plus button between the trash and eye icons.](assets/active-dhcp-leases.png)

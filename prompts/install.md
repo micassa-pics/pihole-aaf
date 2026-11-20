@@ -23,11 +23,11 @@ Fetch these two patches over HTTPS on the workstation. Both links point to the
 same Git commit. Verify each file's SHA-256 before using it.
 
 pihole-dhcp-table.patch
-https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/2e535ed6f12a45cfb1164c5db53db4f30406154d/patches/pihole-dhcp-table.patch
-SHA-256 f35eeff304760b10b3c866d1fb0b0e98f0b4f48d2d5e7c6a6b05e4bc15a7fa1e
+https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/27baeefcd1060e57e8934773e5a80371eca7534f/patches/pihole-dhcp-table.patch
+SHA-256 0412578cab30d15d7edd13efee9ce5ce7174713b261020db96f93629e8090f24
 
 pihole-query-log-grouping.patch
-https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/2e535ed6f12a45cfb1164c5db53db4f30406154d/patches/pihole-query-log-grouping.patch
+https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/27baeefcd1060e57e8934773e5a80371eca7534f/patches/pihole-query-log-grouping.patch
 SHA-256 813d9ec084b4d177b472db5660db6d240cb9e45587f4dc46ec417141434a0e9a
 
 The DHCP patch touches settings-dhcp.lp, scripts/js/settings-dhcp.js and
