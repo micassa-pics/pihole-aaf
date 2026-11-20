@@ -50,7 +50,7 @@ index af99c0a..dc2d854 100644
    } else {
      for (const element of expertSettingsNodes) element.classList.toggle("d-none", true);
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..997b54d 100644
+index 27adb7b..91839f8 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,11 @@
@@ -676,8 +676,8 @@ index 27adb7b..997b54d 100644
  
 -    // Add the save button to the actions column
 +    if (row.hasClass("static-reservation-draft")) {
-+      saveBtn.text("Confirm").attr("title", "Confirm reservation");
-+      cancelBtn.text("Cancel").attr("title", "Cancel reservation");
++      saveBtn.attr("aria-label", "Confirm").attr("title", "Confirm reservation");
++      cancelBtn.attr("aria-label", "Cancel").attr("title", "Cancel reservation");
 +    }
 +
 +    // Add the save and cancel buttons to the actions column.
