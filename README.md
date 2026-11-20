@@ -64,19 +64,19 @@ Select the eye beside an active lease or static reservation to see queries from 
 1. Find the device under **Currently active DHCP leases**.
 2. Select **+** to the right of the eye. A draft opens at the bottom of **Static DHCP configuration**.
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
-4. Select **Save & Apply** to save the confirmed reservation.
+4. Review the pending changes listed below **Save & Apply**, then select the button. It appears when there are changes to save.
 
-Tap an IP or MAC address in either DHCP table to copy it. **Copied** appears briefly. When you edit a reservation hostname, spaces become underscores. The editor removes unsupported characters. To change a saved address, select the pencil in the reservation row.
+Tap a MAC address in either DHCP table to copy it. **Copied** appears briefly. Tap a hostname in either table to edit it inline. As you type, spaces become underscores. The editor removes unsupported characters. To change a saved address, select the pencil in the reservation row.
 
 Long client IDs appear in a tinted, read-only field. Tap once to copy the full ID. **Copied** appears briefly when the copy succeeds. If the browser blocks copying, the ID stays selected for manual copying.
 
 Under **Currently active DHCP leases**, tap **Groups** in the far-left cell of a lease row to edit its membership. Select existing groups or enter a group name. Choose **Save groups** to assign them to that IP. Pi-hole creates the named group if it does not exist. The change takes effect separately from **Save & Apply**. If another device later gets this IP, it uses the same groups. If the lease could inherit an interface rule, the table shows **Check interface rule**.
 
-Under **Currently active DHCP leases**, tap the pencil beside a hostname. Edit the name, select the checkmark, then select **Save & Apply**. A dynamic lease keeps its dynamic address. The DHCP name takes effect when the client renews. Use the manual editor for advanced host rules.
+Under **Currently active DHCP leases**, tap a hostname to edit it. In either table, press **Enter** to stage the name or **Esc** to discard it. Select **Save & Apply** to write staged changes. A dynamic lease keeps its dynamic address. The DHCP name takes effect when the client renews. Use the manual editor for advanced host rules.
 
 In **Expiration**, the outline represents the configured lease time. The fill shows the time left. Hover or focus the bar for Pi-hole's usual wording, such as "in 3 hours" or "Never".
 
-In active leases, **Expiration** sits beside **Hostname**. **MAC** and **CID** start collapsed. Tap either eye to show or hide that column’s values.
+In active leases, **Expiration** sits beside **Hostname**. **MAC** and **CID** start collapsed. Tap either header label to show or hide that column’s values.
 
 The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. A dash means Pi-hole has no per-IP history for that lease.
 
