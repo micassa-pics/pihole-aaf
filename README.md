@@ -27,6 +27,8 @@ This project provides two independent patches for the Pi-hole v6 web interface. 
 
 ## awesome-a-fyer the dhcp page
 
+Select the eye beside any lease to see queries from that client.
+
 The DHCP page opens in Expert mode. Select a section heading to expand or collapse it.
 
 ![DHCP Settings with all five sections collapsed](assets/dhcp-sections-collapsed.png)
@@ -40,7 +42,7 @@ The DHCP page opens in Expert mode. Select a section heading to expand or collap
 
 ![Active DHCP leases. The bottom three rows have a plus button between the trash and eye icons.](assets/active-dhcp-leases.png)
 
-In this example, the top three devices already have reservations. The bottom three have a **+** button. Select the eye beside any lease to see queries from that client.
+In this example, the top three devices already have reservations. The bottom three have a **+** button.
 
 ![Static DHCP configuration with IP address, hostname, MAC address, and action columns](assets/static-dhcp-reservations.png)
 
