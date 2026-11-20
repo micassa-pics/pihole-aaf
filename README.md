@@ -36,11 +36,11 @@ The DHCP page opens in Expert mode. Select a section heading to expand or collap
 ### Create a static reservation
 
 1. Find the device under **Currently active DHCP leases**.
-2. Select **+** beside the lease. A draft opens at the bottom of **Static DHCP configuration**.
+2. Select **+** to the right of the eye. A draft opens at the bottom of **Static DHCP configuration**.
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
 4. Select **Save & Apply** to save the confirmed reservation.
 
-![Active DHCP leases. The bottom three rows have a plus button between the trash and eye icons.](assets/active-dhcp-leases.png)
+![Active DHCP leases. The bottom three leases can be added to the static list.](assets/active-dhcp-leases.png)
 
 In this example, the top three devices already have reservations. The bottom three have a **+** button.
 

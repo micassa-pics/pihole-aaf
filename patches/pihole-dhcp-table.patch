@@ -50,7 +50,7 @@ index af99c0a..dc2d854 100644
    } else {
      for (const element of expertSettingsNodes) element.classList.toggle("d-none", true);
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..91839f8 100644
+index 27adb7b..787a51c 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,11 @@
@@ -135,7 +135,9 @@ index 27adb7b..91839f8 100644
 +        .attr("aria-label", "View Query Log for " + data.ip + " (opens in a new tab)")
 +        .attr("title", "View Query Log")
 +        .attr("data-toggle", "tooltip");
-+      const actions = $("td:eq(6)", row).empty().append($deleteBtn, " ");
++      const actions = $("td:eq(6)", row)
++        .empty()
++        .append($deleteBtn, " ", $queriesLink);
 +      if (staticLeaseDraft(data)) {
 +        const addButton = $(
 +          '<button type="button" class="btn btn-primary btn-xs copy-to-static"><span class="fa fa-fw fa-plus" aria-hidden="true"></span></button>'
@@ -143,10 +145,8 @@ index 27adb7b..91839f8 100644
 +          .attr("aria-label", "Add to static DHCP")
 +          .attr("title", "Add to static DHCP")
 +          .attr("data-toggle", "tooltip");
-+        actions.append(addButton, " ");
++        actions.append(" ", addButton);
 +      }
-+
-+      actions.append($queriesLink);
      },
      select: {
        style: "multi",
