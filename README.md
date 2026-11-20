@@ -15,7 +15,9 @@ Open the install page, copy the full prompt, and paste it into your LLM. It asks
 
 ![Example active DHCP leases table showing IP addresses, hostnames, expiration times, and per-client actions](assets/active-dhcp-leases.png)
 
-*Illustrative view with fictional device names, addresses, and lease data.*
+![Static DHCP reservations with IP address, hostname, MAC address, and controls for adding or deleting a reservation](assets/static-dhcp-reservations.png)
+
+*Both examples use the same fictional devices and network addresses.*
 
 ## Query Log
 
