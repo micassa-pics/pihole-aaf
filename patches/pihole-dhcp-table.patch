@@ -50,7 +50,7 @@ index af99c0a..dc2d854 100644
    } else {
      for (const element of expertSettingsNodes) element.classList.toggle("d-none", true);
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..052ba4a 100644
+index 27adb7b..5c849a7 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,12 @@
@@ -137,8 +137,8 @@ index 27adb7b..052ba4a 100644
        { data: "expires", render: utils.renderTimespan },
        { data: "clientid", render: renderHostnameCLID },
 -      { data: null, width: "22px", orderable: false },
-+      { data: null, width: "72px", orderable: false, className: "text-nowrap lease-actions" },
 +      { data: null, defaultContent: "", searchable: false, orderable: false, className: "lease-activity" },
++      { data: null, width: "72px", orderable: false, className: "text-nowrap lease-actions" },
      ],
      columnDefs: [
        {
@@ -184,7 +184,7 @@ index 27adb7b..052ba4a 100644
 -        .data("ip", data.ip || "")
 -        .data("hostname", data.name || "");
 -      $("td:eq(6)", row).empty().append($deleteBtn, " ", $copyBtn);
-+      const actions = $("td:eq(6)", row)
++      const actions = $(".lease-actions", row)
 +        .empty()
 +        .append($deleteBtn, " ", queryLogLink(data.ip));
 +      if (staticLeaseDraft(data)) {
@@ -897,7 +897,7 @@ index 27adb7b..052ba4a 100644
      $(this).attr("title", "Invalid IP address format");
    } else {
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..f984f4a 100644
+index 1cbc347..373d713 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
 @@ -13,13 +13,21 @@ mg.include('scripts/lua/header_authenticated.lp','r')
@@ -965,14 +965,14 @@ index 1cbc347..f984f4a 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -155,6 +163,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -154,6 +162,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+                                     <th>MAC address</th>
                                      <th>Expiration</th>
                                      <th>Client ID</th>
-                                     <td></td>
 +                                    <th>DNS activity (24h)</th>
+                                     <td></td>
                                  </tr>
                              </thead>
-                             <tbody>
 @@ -163,13 +172,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>

@@ -66,7 +66,7 @@ Select the eye beside an active lease or static reservation to see queries from 
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
 4. Select **Save & Apply** to save the confirmed reservation.
 
-The rightmost **DNS activity (24h)** column shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. A dash means Pi-hole has no per-IP history for that lease.
+The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. A dash means Pi-hole has no per-IP history for that lease.
 
 In this example, the top three devices already have reservations. The bottom three have a **+** button.
 
