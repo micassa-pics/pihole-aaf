@@ -3,12 +3,6 @@
 <style>
 .wipe {clip-path:inset(0 50% 0 0)}
 .divider {transform:translateX(50%)}
-@media (prefers-reduced-motion:no-preference) {
-.wipe {animation:wipe 9s ease-in-out infinite}
-.divider {animation:slide 9s ease-in-out infinite}
-@keyframes wipe {0%,100% {clip-path:inset(0 50% 0 0)} 20%,34% {clip-path:inset(0 0 0 0)} 64%,78% {clip-path:inset(0 100% 0 0)}}
-@keyframes slide {0%,100% {transform:translateX(50%)} 20%,34% {transform:translateX(100%)} 64%,78% {transform:translateX(0)}}
-}
 </style>
 <rect width="100%" height="44" fill="#22282c"/>
 <g font-family="system-ui,sans-serif" font-weight="600" font-size="22" fill="white">
