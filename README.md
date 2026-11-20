@@ -1,16 +1,20 @@
 # Pi-hole Awesome-a-fyer
 
-Unofficial web interface patches for Pi-hole v6. Manage DHCP reservations from the leases table and group repeated requests in the Query Log.
+Two independent patches for the Pi-hole v6 web interface. **DHCP** lets you turn an active lease into a static reservation. **Query Log** groups repeated requests and shows how often each one occurred.
 
 <a name="query-log"></a>
 
 [awesome-a-fyer the dhcp page](#awesome-a-fyer-the-dhcp-page) · [awesome-a-fyer the queries page](queries.md)
 
-**[Install with the copyable prompt](prompts/install.md)** · **[Undo with the copyable prompt](prompts/undo.md)** · **[Browse the patches](patches/README.md)**
+## Get started
 
-Copy the install prompt into your LLM and choose **DHCP only**, **Query Log only**, or **both**. It asks how to reach your Pi-hole, then fetches and checks your selected patches. The undo prompt offers the same choices.
+**[Open the copyable prompt](prompts/manage.md)** and paste the full block into your LLM.
 
-To check for a newer version, run the [install or update prompt](prompts/install.md) and say **“check for updates only.”** It compares each selected patch with GitHub and reports its status. During an upgrade it tests replacing the installed revision in staging before changing the live web files.
+1. Choose **DHCP**, **Query Log**, or **both**.
+2. Choose **Check only**, **Install/update**, or **Undo**.
+3. Give the LLM your Pi-hole Admin URL and usual SSH alias or command. It will identify the installation and check the selected patches against the files serving your UI.
+
+Use **Check only** to see whether a newer patch is available. **Install/update** skips pages that are already current. **Undo** removes the installed revision for the pages you chose. [Browse the patch files](patches/README.md).
 
 <a name="dhcp"></a>
 

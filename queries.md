@@ -11,6 +11,6 @@ In this fictional example, the same client made 240 A queries and 185 AAAA queri
 - Select a grouped row to inspect its latest matching query. **Mixed** means the requests in that group had different results.
 - Select **Refresh** to include newer requests, or **Ungroup** to return to individual requests and their reply times.
 
-To install just this feature, choose **Query Log only** in the [install prompt](prompts/install.md).
+To install just this feature, open the [copyable prompt](prompts/manage.md), choose **Query Log**, then **Install/update**.
 
-[Query Log patch](patches/pihole-query-log-grouping.patch) · [Undo prompt](prompts/undo.md) · [Back to the README](README.md)
+[Query Log patch](patches/pihole-query-log-grouping.patch) · [Back to the README](README.md)
