@@ -27,7 +27,7 @@ This project provides two independent patches for the Pi-hole v6 web interface. 
 
 ## awesome-a-fyer the dhcp page
 
-Select the eye beside any lease to see queries from that client.
+Select the eye beside an active lease or static reservation to see queries from that IP address.
 
 The DHCP page opens in Expert mode. Select a section heading to expand or collapse it.
 

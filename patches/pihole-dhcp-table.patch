@@ -50,7 +50,7 @@ index af99c0a..dc2d854 100644
    } else {
      for (const element of expertSettingsNodes) element.classList.toggle("d-none", true);
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..787a51c 100644
+index 27adb7b..0a51fe5 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,11 @@
@@ -111,7 +111,7 @@ index 27adb7b..787a51c 100644
        const hasRows = this.api().rows({ filter: "applied" }).data().length > 0;
        $(".datatable-bt").css("visibility", hasRows ? "visible" : "hidden");
  
-@@ -76,19 +83,29 @@ $(() => {
+@@ -76,19 +83,22 @@ $(() => {
        const $deleteBtn = $(
          '<button type="button" class="btn btn-danger btn-xs"><span class="far fa-trash-alt"></span></button>'
        )
@@ -122,22 +122,16 @@ index 27adb7b..787a51c 100644
          .attr("data-toggle", "tooltip");
 -      const $copyBtn = $(
 -        '<button type="button" class="btn btn-secondary btn-xs copy-to-static"><span class="fa fa-fw fa-copy"></span></button>'
-+      const $queriesLink = $(
-+        '<a class="btn btn-secondary btn-xs" target="_blank" rel="noopener"><span class="fa fa-fw fa-eye" aria-hidden="true"></span></a>'
-       )
+-      )
 -        .attr("title", "Copy to static leases")
 -        .attr("data-toggle", "tooltip")
 -        .data("hwaddr", data.hwaddr || "")
 -        .data("ip", data.ip || "")
 -        .data("hostname", data.name || "");
 -      $("td:eq(6)", row).empty().append($deleteBtn, " ", $copyBtn);
-+        .attr("href", document.body.dataset.webhome + "queries?client_ip=" + encodeURIComponent(data.ip))
-+        .attr("aria-label", "View Query Log for " + data.ip + " (opens in a new tab)")
-+        .attr("title", "View Query Log")
-+        .attr("data-toggle", "tooltip");
 +      const actions = $("td:eq(6)", row)
 +        .empty()
-+        .append($deleteBtn, " ", $queriesLink);
++        .append($deleteBtn, " ", queryLogLink(data.ip));
 +      if (staticLeaseDraft(data)) {
 +        const addButton = $(
 +          '<button type="button" class="btn btn-primary btn-xs copy-to-static"><span class="fa fa-fw fa-plus" aria-hidden="true"></span></button>'
@@ -150,7 +144,7 @@ index 27adb7b..787a51c 100644
      },
      select: {
        style: "multi",
-@@ -101,7 +118,7 @@ $(() => {
+@@ -101,7 +111,7 @@ $(() => {
          titleAttr: "Select All",
          className: "btn-sm datatable-bt selectAll",
          action() {
@@ -159,7 +153,7 @@ index 27adb7b..787a51c 100644
          },
        },
        {
-@@ -109,7 +126,7 @@ $(() => {
+@@ -109,7 +119,7 @@ $(() => {
          titleAttr: "Select All",
          className: "btn-sm datatable-bt selectMore",
          action() {
@@ -168,7 +162,7 @@ index 27adb7b..787a51c 100644
          },
        },
        {
-@@ -123,11 +140,12 @@ $(() => {
+@@ -123,11 +133,12 @@ $(() => {
          titleAttr: "Delete Selected",
          className: "btn-sm datatable-bt deleteSelected",
          action() {
@@ -186,7 +180,7 @@ index 27adb7b..787a51c 100644
          },
        },
      ],
-@@ -160,66 +178,132 @@ $(() => {
+@@ -160,66 +171,142 @@ $(() => {
        return data;
      },
    });
@@ -290,6 +284,16 @@ index 27adb7b..787a51c 100644
 +  return true;
 +}
 +
++function queryLogLink(ip) {
++  return $(
++    '<a class="btn btn-secondary btn-xs" target="_blank" rel="noopener"><span class="fa fa-fw fa-eye" aria-hidden="true"></span></a>'
++  )
++    .attr("href", document.body.dataset.webhome + "queries?client_ip=" + encodeURIComponent(ip))
++    .attr("aria-label", "View Query Log for " + ip + " (opens in a new tab)")
++    .attr("title", "View Query Log")
++    .attr("data-toggle", "tooltip");
++}
++
 +function reservationIP(address) {
 +  if (address.includes("/")) return "";
 +  if (!address.includes(":")) return utils.validateIPv4(address) ? address : "";
@@ -365,7 +369,7 @@ index 27adb7b..787a51c 100644
  }
  
  function processDHCPConfig() {
-@@ -237,7 +321,7 @@ function processDHCPConfig() {
+@@ -237,7 +324,7 @@ function processDHCPConfig() {
  
  function parseStaticDHCPLine(line) {
    // Accepts: [hwaddr][,ipaddr][,hostname] (all optional, comma-separated, no advanced tokens)
@@ -374,7 +378,7 @@ index 27adb7b..787a51c 100644
  
    // If the line is empty, return an object with empty fields
    if (!line.trim())
-@@ -264,7 +348,7 @@ function parseStaticDHCPLine(line) {
+@@ -264,7 +351,7 @@ function parseStaticDHCPLine(line) {
      // Advanced if the part is "infinite", "ignore" or a lease time value
      if (/^(infinite|ignore|\d+(w|W|d|D|h|H|m|M|s|S))$/u.test(part)) return "advanced";
  
@@ -383,7 +387,7 @@ index 27adb7b..787a51c 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +384,50 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +387,50 @@ function parseStaticDHCPLine(line) {
    };
  }
  
@@ -436,7 +440,7 @@ index 27adb7b..787a51c 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,10 +440,13 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,10 +443,13 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -453,7 +457,7 @@ index 27adb7b..787a51c 100644
  
    // Update "data-original-line" to containing the new saved values
    row.attr("data-original-line", lines[rowIdx]);
-@@ -337,19 +457,25 @@ $(document).on("click", ".save-static-row", function () {
+@@ -337,19 +460,25 @@ $(document).on("click", ".save-static-row", function () {
    // then remove highlight colors from all cells on this row
    $("td", row).blur();
  
@@ -486,7 +490,7 @@ index 27adb7b..787a51c 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -373,12 +499,9 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -373,12 +502,9 @@ $(document).on("click", ".cancel-static-row", function () {
    $(this).siblings(".save-static-row").tooltip("hide").remove();
    $(this).tooltip("hide").remove();
  
@@ -501,7 +505,7 @@ index 27adb7b..787a51c 100644
    }
  });
  
-@@ -386,6 +509,14 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +512,14 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -516,7 +520,7 @@ index 27adb7b..787a51c 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,42 +524,131 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,42 +527,131 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -670,7 +674,7 @@ index 27adb7b..787a51c 100644
    // Add save button (a hint asking to click on the button will be shown below the table - CSS pseudo-element)
    if (row.find(".save-static-row").length === 0) {
      const idx = row.attr("data-row");
-@@ -445,34 +665,55 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +668,86 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
@@ -739,8 +743,9 @@ index 27adb7b..787a51c 100644
        .attr("data-toggle", "tooltip");
  
      // Create the new row - store the original data, in case we need to restore the values
-@@ -480,45 +721,27 @@ function renderStaticDHCPTable() {
+     const tr = $("<tr></tr>").attr("data-row", idx).attr("data-original-line", line);
  
++    const actions = $('<td class="actions"></td>').append(delBtn);
      if (parsed === "advanced") {
        tr.addClass("table-warning").append(
 -        `<td colspan="3" class="text-muted"><em>Advanced settings present in line</em> ${idx + 1}</td>`
@@ -773,11 +778,13 @@ index 27adb7b..787a51c 100644
 -      // Append 3 cells containing parsed values
 -      tr.append(tdHwaddr, tdIpaddr, tdHostname);
 +      tr.append(...staticReservationCells(parsed));
++      const ip = reservationIP(parsed.ipaddr);
++      if (ip) actions.append(" ", queryLogLink(ip.replace(/^\[|\]$/gu, "")));
      }
  
      // Append a last cell containing the buttons
 -    tr.append($('<td class="actions"></td>').append(delBtn, " ", addBtn));
-+    tr.append($('<td class="actions"></td>').append(delBtn));
++    tr.append(actions);
  
 -    tbody.append(tr);
 +    rows.push(tr[0]);
@@ -795,7 +802,7 @@ index 27adb7b..787a51c 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +754,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +760,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -812,7 +819,7 @@ index 27adb7b..787a51c 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +821,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +827,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
