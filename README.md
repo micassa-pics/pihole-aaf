@@ -6,7 +6,7 @@ This project provides two independent patches for the Pi-hole v6 web interface. 
 
 | Page | What you can do |
 | --- | --- |
-| [DHCP](#awesome-a-fyer-the-dhcp-page) | Create a static reservation from an active lease. |
+| [DHCP](#awesome-a-fyer-the-dhcp-page) | Tidy the DHCP page with collapsible boxes, and added functionality |
 | [Query Log](queries.md) | Group repeated DNS queries and count requests from each client. |
 
 ## Get started
