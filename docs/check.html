@@ -10,25 +10,20 @@ body { max-width: 42rem; margin: 8vh auto; padding: 0 1rem; }
 h1 { font-size: 1.5rem; } li { margin-block: .6rem; }
 </style>
 <h1>awesome-a-fyer patch versions</h1>
-<ul id="versions"></ul>
+<p id="status"></p>
 <a href="https://github.com/micassa-pics/pihole-awesome-a-fyer/blob/main/prompts/manage.md">Open the update prompt</a>
 <script>
-const latest = { dhcp: "1.1.2", queries: "1.1.1" };
+const latest = "1.1.3";
 const installed = new URLSearchParams(location.hash.slice(1));
-for (const [key, name] of [["dhcp", "DHCP"], ["queries", "Query Log"]]) {
-  if (installed.size && !installed.has(key)) continue;
-  const current = installed.get(key);
-  const available = latest[key];
-  let text = name + " — latest version " + available;
-  if (current && /^\d+\.\d+\.\d+$/.test(current)) {
-    const local = current.split(".").map(Number);
-    const difference = available.split(".").map((part, i) => Number(part) - local[i]).find(n => n !== 0);
-    const status = difference > 0 ? "Update available" : difference < 0 ? "Installed version is newer" : "Up to date";
-    text = name + " — " + status + " (installed " + current + ", latest " + available + ")";
-  }
-  const item = document.createElement("li");
-  item.textContent = text;
-  document.getElementById("versions").append(item);
-}
+const pages = [["dhcp", "DHCP"], ["queries", "Query Log"]].filter(([key]) => installed.has(key));
+const older = pages.filter(([key]) => {
+  const value = installed.get(key);
+  if (!/^\d+\.\d+\.\d+$/.test(value)) return true;
+  const parts = value.split(".").map(Number);
+  return latest.split(".").map((n, i) => Number(n) - parts[i]).find(delta => delta !== 0) > 0;
+});
+const status = older.length ? "Update available for " + older.map(([, name]) => name).join(" and ") :
+  pages.length ? "Installed pages are up to date" : "Latest release";
+document.getElementById("status").textContent = status + " · awesome-a-fyer v" + latest;
 </script>
 </html>
