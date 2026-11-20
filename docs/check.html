@@ -13,7 +13,7 @@ h1 { font-size: 1.5rem; } li { margin-block: .6rem; }
 <ul id="versions"></ul>
 <a href="https://github.com/micassa-pics/pihole-awesome-a-fyer/blob/main/prompts/manage.md">Open the update prompt</a>
 <script>
-const latest = { dhcp: "1.1.0", queries: "1.1.0" };
+const latest = { dhcp: "1.1.1", queries: "1.1.1" };
 const installed = new URLSearchParams(location.hash.slice(1));
 for (const [key, name] of [["dhcp", "DHCP"], ["queries", "Query Log"]]) {
   if (installed.size && !installed.has(key)) continue;

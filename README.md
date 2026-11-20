@@ -70,7 +70,7 @@ Select the eye beside an active lease or static reservation to see queries from 
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
 4. Review the pending changes listed below **Save & Apply**, then select the button. It appears when there are changes to save.
 
-Tap a MAC address in either DHCP table to copy it. **Copied** appears briefly. Tap a hostname in either table to edit it inline. As you type, spaces become underscores. The editor removes unsupported characters. To change a saved address, select the pencil in the reservation row.
+Tap a MAC address in either DHCP table to copy it. **Copied** appears briefly. Tap a hostname in either table to edit it inline. As you type, spaces become underscores. The editor removes unsupported characters. To change a saved address, select the IP address in the reservation row.
 
 Long client IDs appear in a tinted, read-only field. Tap once to copy the full ID. **Copied** appears briefly when the copy succeeds. If the browser blocks copying, the ID stays selected for manual copying.
 

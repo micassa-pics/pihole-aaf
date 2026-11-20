@@ -629,10 +629,10 @@ index 9fbcc19..92a13aa 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..5976c0b 100644
+index 2b7138e..4eca729 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
-@@ -856,3 +856,31 @@ globalThis.utils = (function () {
+@@ -856,3 +856,43 @@ globalThis.utils = (function () {
      base64ToString,
    };
  })();
@@ -642,22 +642,34 @@ index 2b7138e..5976c0b 100644
 +  const memory = document.getElementById("memory");
 +  if (!memory) return;
 +  let line = document.getElementById("awesome-a-fyer-version");
-+  if (!line) {
-+    line = document.createElement("div");
++  if (line?.tagName !== "SPAN") {
++    const previous = line;
++    line = document.createElement("span");
 +    line.id = "awesome-a-fyer-version";
-+    memory.after(line);
++    if (previous) {
++      Object.assign(line.dataset, previous.dataset);
++      previous.remove();
++    }
++    memory.after(document.createElement("br"), line);
++    line.style.display = "inline-flex";
++    line.style.alignItems = "center";
++    const icon = document.createElement("i");
++    icon.className = "fa fa-fw fa-puzzle-piece text-green-light";
++    icon.setAttribute("aria-hidden", "true");
++    icon.style.order = "-1";
 +    const check = document.createElement("a");
 +    check.target = "_blank";
 +    check.rel = "noopener noreferrer";
 +    check.title = "Check for newer awesome-a-fyer patches on GitHub Pages";
 +    check.setAttribute("aria-label", check.title);
 +    check.innerHTML = '<i class="fas fa-sync-alt" aria-hidden="true"></i>';
-+    line.append(document.createElement("span"), " ", check);
++    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
++    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  line.dataset.queries = "1.1.0";
++  line.dataset.queries = "1.1.1";
 +  const installed = new URLSearchParams(line.dataset);
 +  const versions = new Set(installed.values());
-+  line.firstElementChild.textContent = versions.size === 1 ? "Patch v" + [...versions][0] :
++  line.firstElementChild.textContent = versions.size === 1 ? "\u00a0\u00a0Patch: v" + [...versions][0] :
 +    [...installed].map(([key, value]) => key + " v" + value).join(", ");
 +  line.firstElementChild.title = [...installed].map(([key, value]) => key + " v" + value).join(", ");
 +  line.lastElementChild.href = "https://micassa-pics.github.io/pihole-awesome-a-fyer/check.html#" + installed;
