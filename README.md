@@ -54,14 +54,16 @@ The DHCP page opens in Expert mode. Select a section heading to expand or collap
 
 ![DHCP Settings with all five sections collapsed](assets/dhcp-sections-collapsed.jpg)
 
+Select the eye beside an active lease or static reservation to see queries from that IP address.
+
 ### Create a static reservation
+
 
 1. Find the device under **Currently active DHCP leases**.
 2. Select **+** to the right of the eye. A draft opens at the bottom of **Static DHCP configuration**.
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
 4. Select **Save & Apply** to save the confirmed reservation.
 
-**Select the eye beside an active lease or static reservation to see queries from that IP address.**
 In this example, the top three devices already have reservations. The bottom three have a **+** button.
 
 
