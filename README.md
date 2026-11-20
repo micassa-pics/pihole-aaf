@@ -2,6 +2,10 @@
 
 Unofficial web interface patches for Pi-hole v6. Manage DHCP reservations from the leases table and group repeated requests in the Query Log.
 
+<a name="query-log"></a>
+
+[awesome-a-fyer the dhcp page](#awesome-a-fyer-the-dhcp-page) · [awesome-a-fyer the queries page](queries.md)
+
 **[Install with the copyable prompt](prompts/install.md)** · **[Undo with the copyable prompt](prompts/undo.md)** · **[Browse the patches](patches/README.md)**
 
 Open the install page, copy the full prompt, and paste it into your LLM. It asks for your Pi-hole address and SSH details, fetches the two patch files, and checks them against your installed web interface. The undo page works the same way.
@@ -24,10 +28,6 @@ The top three devices already have static reservations. For any of the bottom th
 ![Static DHCP reservations with IP address, hostname, MAC address, and controls for adding or deleting a reservation](assets/static-dhcp-reservations.png)
 
 *Both tables use fictional device names and network addresses.*
-
-## Query Log
-
-Choose **Group** to combine requests with the same domain, query type, and client IP across result pages. **Count** replaces reply time. The button beside **Group** cycles through **All**, **Blocked**, and **Allowed**.
 
 ## Compatibility
 
