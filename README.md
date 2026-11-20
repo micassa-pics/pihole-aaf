@@ -28,6 +28,8 @@ This project provides two independent patches for the Pi-hole v6 web interface. 
 
 ### Group repeated queries
 
+Drag a Query Log header to move its column. Individual and grouped queries share the layout. Your browser remembers it after reload.
+
 When you filter by one client, its hostname appears in bold beside **Recent Queries**.
 
 Select **Group** at the top of Recent Queries. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.

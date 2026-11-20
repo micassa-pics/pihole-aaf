@@ -4,6 +4,8 @@ Open **Query Log** from the Pi-hole sidebar. If you also use the DHCP patch, sel
 
 ## Group repeated queries
 
+Drag a Query Log header to move its column. Your browser remembers the layout for both individual and grouped queries.
+
 When you filter by one client, its hostname appears in bold beside **Recent Queries**.
 
 Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
