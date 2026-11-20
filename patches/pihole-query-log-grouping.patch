@@ -1,8 +1,8 @@
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..24ba7c9 100644
+index 9fbcc19..620fccd 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
-@@ -23,6 +23,19 @@ const dateformat = "MMM Do YYYY, HH:mm";
+@@ -23,6 +23,20 @@ const dateformat = "MMM Do YYYY, HH:mm";
  
  let table = null;
  let cursor = null;
@@ -19,10 +19,11 @@ index 9fbcc19..24ba7c9 100644
 +  { label: "Allowed", upstream: "permitted" },
 +];
 +const queryBatchSize = 1000;
++const queryChartBins = 24;
  const filters = [
    "client_ip",
    "client_name",
-@@ -132,16 +145,163 @@ function initDateRangePicker(data) {
+@@ -132,16 +146,169 @@ function initDateRangePicker(data) {
    });
  }
  
@@ -52,7 +53,7 @@ index 9fbcc19..24ba7c9 100644
 +
 +async function collectQueryRows(request, source, requestId) {
 +  const groups = new Map();
-+  const range = { first: Infinity, last: -Infinity };
++  const range = {};
 +  const rows = [];
 +  if (grouped) {
 +    // Use the same theme colors as the dashboard Queries over time chart.
@@ -76,6 +77,13 @@ index 9fbcc19..24ba7c9 100644
 -  table.draw();
 +    if (requestId !== queryRequestId) return;
 +    if (beginningOfTime === null && start === 0) initDateRangePicker(page);
++    if (grouped && start === 0) {
++      const params = new URL(source.url).searchParams;
++      const now = Date.now() / 1000;
++      range.end = Math.min(Number(params.get("until") || now), now);
++      range.start = Math.min(Number(params.get("from") ?? beginningOfTime ?? range.end), range.end);
++      range.width = (range.end - range.start) / queryChartBins;
++    }
 +
 +    for (const query of page.queries) {
 +      if (source.filterLocally && parseQueryStatus(query).blocked !== source.blocked) continue;
@@ -87,18 +95,18 @@ index 9fbcc19..24ba7c9 100644
 +      const { domain, type, client } = query;
 +      const hidden = domain === "hidden" || !client.ip || client.ip === "0.0.0.0";
 +      const id = hidden ? Symbol() : JSON.stringify([String(domain).toLowerCase(), type, client.ip]);
-+      const hour = Math.floor(query.time / 3600);
-+      range.first = Math.min(range.first, hour);
-+      range.last = Math.max(range.last, hour);
-+      const existing = groups.get(id);
++      let existing = groups.get(id);
 +      if (existing) {
 +        existing.group.count++;
-+        existing.group.hours.set(hour, (existing.group.hours.get(hour) || 0) + 1);
 +        existing.group.mixedStatus ||= existing.status !== query.status || existing.cname !== query.cname;
 +        existing.group.mixedDNSSEC ||= existing.dnssec !== query.dnssec;
 +      } else {
-+        groups.set(id, { ...query, group: { count: 1, range, hours: new Map([[hour, 1]]), mixedStatus: false, mixedDNSSEC: false } });
++        existing = { ...query, group: { count: 1, range, bins: new Array(queryChartBins).fill(0), mixedStatus: false, mixedDNSSEC: false } };
++        groups.set(id, existing);
 +      }
++      // The API includes the end timestamp. Put that endpoint in the last slot.
++      const slot = range.width ? Math.floor((query.time - range.start) / range.width) : 0;
++      existing.group.bins[Math.max(0, Math.min(queryChartBins - 1, slot))]++;
 +    }
 +
 +    start += page.queries.length;
@@ -107,23 +115,22 @@ index 9fbcc19..24ba7c9 100644
 +  return grouped ? [...groups.values()] : rows;
 +}
 +
-+function hourlyQueryChart(group) {
-+  const span = group.range.last - group.range.first + 1;
-+  let peak = 0;
-+  for (const count of group.hours.values()) peak = Math.max(peak, count);
-+  const hourLabel = hour => moment.unix(hour * 3600).utc().format("YYYY-MM-DD HH:00 [UTC]");
-+  const label = "Queries per hour from " + hourLabel(group.range.first) + " through " +
-+    hourLabel(group.range.last) + ". Tallest bar: " + peak + ".";
-+  const bars = [];
-+  for (const [hour, count] of group.hours) {
-+    const x = (hour - group.range.first) * 100 / span;
-+    const height = Math.max(1, 28 * count / peak);
-+    bars.push('<rect x="' + x + '%" y="' + (28 - height) + '" width="' + (88 / span) +
-+      '%" height="' + height + '"><title>' + hourLabel(hour) + ": " + count + '</title></rect>');
-+  }
-+  return '<svg class="query-hour-chart" width="108" height="28" role="img" aria-label="' + label +
-+    '" fill="' + group.range.fill + '"><title>' + label + '</title>' +
-+    '<path d="M0 27.5 H108" stroke="' + group.range.grid + '"/>' + bars.join("") + '</svg>';
++function queryActivityChart({ bins, range }) {
++  const peak = Math.max(...bins);
++  const timeLabel = seconds => moment.unix(seconds).utc().format("YYYY-MM-DD HH:mm:ss");
++  const label = "Query activity in 24 equal intervals from " + timeLabel(range.start) + " to " +
++    timeLabel(range.end) + " UTC. Tallest bar: " + peak + ".";
++  const bars = bins.map((count, i) => {
++    const height = count ? Math.max(1, 27 * count / peak) : 0;
++    const start = range.start + i * range.width;
++    const end = i === bins.length - 1 ? range.end : start + range.width;
++    return '<g><title>' + timeLabel(start) + " to " + timeLabel(end) + " UTC: " + count +
++      '</title><rect x="' + (i * 5) + '" width="5" height="28" fill="transparent"/>' +
++      '<rect x="' + (i * 5) + '" y="' + (27 - height) + '" width="4" height="' + height + '"/></g>';
++  });
++  return '<svg class="query-activity-chart" width="120" height="28" role="img" aria-label="' + label +
++    '" fill="' + range.fill + '"><title>' + label + '</title><path d="M0 27.5 H120" stroke="' +
++    range.grid + '"/>' + bars.join("") + '</svg>';
 +}
 +
 +function sortQueryGroups(rows, order) {
@@ -194,7 +201,7 @@ index 9fbcc19..24ba7c9 100644
  }
  
  function parseQueryStatus(data) {
-@@ -214,6 +374,7 @@ function parseQueryStatus(data) {
+@@ -214,6 +381,7 @@ function parseQueryStatus(data) {
        buttontext = "";
        blocked = true;
        break;
@@ -202,7 +209,7 @@ index 9fbcc19..24ba7c9 100644
      case "QUERY_EXTERNAL_BLOCKED_EDE15":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -274,6 +435,7 @@ function parseQueryStatus(data) {
+@@ -274,6 +442,7 @@ function parseQueryStatus(data) {
        buttontext =
          '<button type="button" class="btn btn-default btn-sm text-red btn-blacklist"><i class="fa fa-ban"></i> Deny</button>';
        break;
@@ -210,7 +217,7 @@ index 9fbcc19..24ba7c9 100644
      case "SPECIAL_DOMAIN":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -446,7 +608,7 @@ function formatInfo(data) {
+@@ -446,7 +615,7 @@ function formatInfo(data) {
    return (
      '<div class="row">' +
      divStart +
@@ -219,7 +226,7 @@ index 9fbcc19..24ba7c9 100644
      moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
      "</div>" +
      clientInfo +
-@@ -462,45 +624,16 @@ function formatInfo(data) {
+@@ -462,45 +631,16 @@ function formatInfo(data) {
    );
  }
  
@@ -274,7 +281,7 @@ index 9fbcc19..24ba7c9 100644
  }
  
  function parseFilters() {
-@@ -525,7 +658,7 @@ function getAPIURL(filters) {
+@@ -525,7 +665,7 @@ function getAPIURL(filters) {
    // up the database lookups notably on slow devices. The API accepts timestamps
    // in seconds since epoch
    if (from > beginningOfTime) apiurl += "&from=" + from;
@@ -283,7 +290,7 @@ index 9fbcc19..24ba7c9 100644
  
    if ($("#disk").prop("checked")) apiurl += "&disk=true";
  
-@@ -554,7 +687,9 @@ $(() => {
+@@ -554,7 +694,9 @@ $(() => {
    const GETDict = utils.parseQueryString();
  
    for (const [sel, element] of Object.entries(filters)) {
@@ -294,7 +301,7 @@ index 9fbcc19..24ba7c9 100644
        width: "100%",
        tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
        placeholder: "Select...",
-@@ -562,8 +697,8 @@ $(() => {
+@@ -562,8 +704,8 @@ $(() => {
      });
    }
  
@@ -305,7 +312,7 @@ index 9fbcc19..24ba7c9 100644
  
    if ("from" in GETDict) {
      from = Number(GETDict.from);
-@@ -574,29 +709,7 @@ $(() => {
+@@ -574,29 +716,7 @@ $(() => {
    }
  
    table = $("#all-queries").DataTable({
@@ -336,18 +343,18 @@ index 9fbcc19..24ba7c9 100644
      serverSide: true,
      dom:
        "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
-@@ -609,8 +722,9 @@ $(() => {
+@@ -609,8 +729,9 @@ $(() => {
        {
          data: "time",
          width: "10%",
 -        render(data, type) {
 +        render(data, type, row) {
            if (type === "display") {
-+            if (row.group) return hourlyQueryChart(row.group);
++            if (row.group) return queryActivityChart(row.group);
              return moment.unix(data).format("Y-MM-DD [<br class='hidden-lg'>]HH:mm:ss z");
            }
  
-@@ -620,10 +734,17 @@ $(() => {
+@@ -620,10 +741,17 @@ $(() => {
        },
        { data: "status", width: "1%", searchable: false },
        { data: "type", width: "1%", searchable: false },
@@ -368,7 +375,7 @@ index 9fbcc19..24ba7c9 100644
      ],
      lengthMenu: [
        [10, 25, 50, 100, 500, 1000],
-@@ -632,7 +753,7 @@ $(() => {
+@@ -632,7 +760,7 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -377,7 +384,7 @@ index 9fbcc19..24ba7c9 100644
      },
      stateLoadCallback() {
        const state = utils.stateLoadCallback("query_log_table");
-@@ -642,8 +763,11 @@ $(() => {
+@@ -642,8 +770,11 @@ $(() => {
      },
      rowCallback(row, data) {
        const querystatus = parseQueryStatus(data);
@@ -390,7 +397,7 @@ index 9fbcc19..24ba7c9 100644
          $("td:eq(1)", row).html(
            "<i class='fa fa-fw " +
              querystatus.icon +
-@@ -658,14 +782,14 @@ $(() => {
+@@ -658,14 +789,14 @@ $(() => {
        }
  
        // Define row background color
@@ -407,7 +414,7 @@ index 9fbcc19..24ba7c9 100644
          const dnssec = parseDNSSEC(data);
          dnssecIcon =
            '<i class="mr-2 fa fa-fw ' +
-@@ -680,10 +804,9 @@ $(() => {
+@@ -680,10 +811,9 @@ $(() => {
        // Escape HTML in domain
        domain = dnssecIcon + utils.escapeHtml(domain);
  
@@ -420,7 +427,7 @@ index 9fbcc19..24ba7c9 100644
        } else {
          $("td:eq(3)", row).html(domain);
        }
-@@ -696,14 +819,17 @@ $(() => {
+@@ -696,14 +826,17 @@ $(() => {
        }
  
        // Show X-icon instead of reply time if no reply was received
@@ -440,7 +447,7 @@ index 9fbcc19..24ba7c9 100644
      initComplete() {
        this.api()
          .columns()
-@@ -718,11 +844,12 @@ $(() => {
+@@ -718,11 +851,12 @@ $(() => {
            // Replace footer text with input field for searchable columns
            const input = document.createElement("input");
            input.placeholder = this.footer().textContent;
@@ -455,7 +462,7 @@ index 9fbcc19..24ba7c9 100644
                this.search(input.value).draw();
              }
            });
-@@ -760,6 +887,8 @@ $(() => {
+@@ -760,6 +894,8 @@ $(() => {
        return;
      }
  
@@ -464,7 +471,7 @@ index 9fbcc19..24ba7c9 100644
      if (row.child.isShown()) {
        // This row is already open - close it
        row.child.hide();
-@@ -771,31 +900,65 @@ $(() => {
+@@ -771,31 +907,65 @@ $(() => {
      }
    });
  
