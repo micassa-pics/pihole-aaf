@@ -1,3 +1,5 @@
+**These patches change only the Pi-hole web interface. They use Pi-hole’s existing API when you save changes. I tweaked the layout to suit how I use Pi-hole. Maybe you’ll find it useful too.**
+
 # Pi-hole awesome-a-fyer
 
 Two optional patches for the Pi-hole v6 web interface. Install either page or both.
