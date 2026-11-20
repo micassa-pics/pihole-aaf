@@ -1,4 +1,4 @@
-# Manage Pi-hole Awesome-a-fyer
+# Manage Pi-hole awesome-a-fyer
 
 Copy the entire block into your AI assistant. Choose **Check only** to compare versions without changing Pi-hole.
 

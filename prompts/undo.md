@@ -1,4 +1,4 @@
-# Undo Pi-hole Awesome-a-fyer
+# Undo Pi-hole awesome-a-fyer
 
 1. Copy the block from the [shared prompt](manage.md) into your AI assistant.
 2. Choose the pages to restore.

@@ -1,13 +1,11 @@
-# Pi-hole Awesome-a-fyer
+# Pi-hole awesome-a-fyer
 
 This project provides two independent patches for the Pi-hole v6 web interface. You can install either patch or both.
 
-<a name="query-log"></a>
-
 | Page | What you can do |
 | --- | --- |
+| [Query Log](#awesome-a-fyer-the-queries-page) | Group repeated DNS queries and count requests from each client. |
 | [DHCP](#awesome-a-fyer-the-dhcp-page) | Tidy the DHCP page with collapsible boxes, and added functionality |
-| [Query Log](queries.md) | Group repeated DNS queries and count requests from each client. |
 
 ## Get started
 
@@ -22,6 +20,31 @@ This project provides two independent patches for the Pi-hole v6 web interface. 
 | **Check only** | Compares installed patches with GitHub. Leaves live files intact. |
 | **Install/update** | Installs missing patches and updates older ones. Skips current patches. |
 | **Undo** | Removes the installed patch from each selected page. |
+
+<a name="query-log"></a>
+
+## awesome-a-fyer the queries page
+
+Open **Query Log** from the Pi-hole sidebar. If you also use the DHCP patch, select the eye beside a lease to see that client's queries.
+
+### Group repeated queries
+
+Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
+
+![Grouped Recent Queries with the All filter active. The Count column shows the largest groups first.](assets/grouped-query-log.jpg)
+
+In this example, one client sent 240 A queries and 185 AAAA queries for `calendar.example`. Each query type has its own row. The example uses fictional data.
+
+### Filter and inspect results
+
+- Select the button beside **Group** or **Ungroup** to cycle through **All**, **Blocked**, and **Allowed**. Your client filter stays active.
+- Select a group to inspect its latest query. **Mixed** means the queries in that group had different results.
+- Select **Refresh** to include newer requests.
+- Select **Ungroup** to see individual requests and their reply times.
+
+To install the Query Log patch alone, choose **Query Log** in the [shared prompt](prompts/manage.md). Then choose **Install/update**.
+
+[Query Log patch](patches/pihole-query-log-grouping.patch) · [Standalone Query Log guide](queries.md)
 
 <a name="dhcp"></a>
 
@@ -55,4 +78,4 @@ Search or sort static reservations by IP address, hostname, or MAC address. To e
 
 The prompt covers native installations, system containers, Docker, Podman, and managed deployments. After a Pi-hole update, run **Check only** again. The update can replace the patched web files.
 
-[Browse the patches](patches/README.md) · [Pi-hole web interface project](https://github.com/pi-hole/web)
+[Browse the patches](patches/README.md) Â· [Pi-hole web interface project](https://github.com/pi-hole/web)

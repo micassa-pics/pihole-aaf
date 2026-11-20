@@ -1,4 +1,4 @@
-# Install or update Pi-hole Awesome-a-fyer
+# Install or update Pi-hole awesome-a-fyer
 
 1. Copy the block from the [shared prompt](manage.md) into your AI assistant.
 2. Choose **DHCP**, **Query Log**, or **both**.
