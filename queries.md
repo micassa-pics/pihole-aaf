@@ -2,6 +2,10 @@
 
 Open **Query Log** in Pi-hole, or select the eye beside an active DHCP lease to see requests from that client.
 
+![Grouped Recent Queries with the All filter selected and results sorted by Count](assets/grouped-query-log.png)
+
+In this fictional example, the same client made 240 A queries and 185 AAAA queries for `calendar.example`. Each query type gets its own row.
+
 - **Group** combines requests with the same domain, query type, and client IP across all pages of the filtered results. **Count** replaces reply time and shows how many requests each row represents.
 - The button beside **Group** cycles through **All**, **Blocked**, and **Allowed**. It works in both views and keeps the selected client filter.
 - Select a grouped row to inspect its latest matching query. **Mixed** means the requests in that group had different results.
