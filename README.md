@@ -40,15 +40,15 @@ The DHCP page opens in Expert mode. Select a section heading to expand or collap
 4. Select **Save & Apply** to save the confirmed reservation.
 
 **Select the eye beside an active lease or static reservation to see queries from that IP address.**
+In this example, the top three devices already have reservations. The bottom three have a **+** button.
 
 
 ![Active DHCP leases. The bottom three leases can be added to the static list.](assets/active-dhcp-leases.jpg)
 
-In this example, the top three devices already have reservations. The bottom three have a **+** button.
+Search or sort static reservations by IP address, hostname, or MAC address. To edit the entries as text, open **Manual Edit Static DHCP Entries**. Pi-hole asks for confirmation when you delete a lease or reservation.
 
 ![Static DHCP configuration with IP address, hostname, MAC address, and action columns](assets/static-dhcp-reservations.jpg)
 
-Search or sort reservations by IP address, hostname, or MAC address. To edit the entries as text, open **Manual Edit Static DHCP Entries**. Pi-hole asks for confirmation when you delete a lease or reservation.
 
 *The tables show fictional devices and addresses.*
 
