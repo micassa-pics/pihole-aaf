@@ -1,12 +1,12 @@
-# Install Pi-hole Awesome-a-fyer
+# Install or update Pi-hole Awesome-a-fyer
 
-Copy the entire block into your LLM. You can install DHCP only, Query Log only, or both.
+Copy the entire block into your LLM. Choose DHCP only, Query Log only, or both. You can also ask it to **check for updates only**.
 
 ```text
-First ask me: “Which would you like to install: DHCP only, Query Log only,
+First ask me: “Which would you like to check or install: DHCP only, Query Log only,
 or both?” Use my choice if I already gave one. Wait for a clear selection
 before downloading files or connecting. Each patch works independently.
-Carry out the selected installation and verification if you have terminal access.
+If I ask for a check only, report what you find and finish before deployment.
 
 Then ask me for the device address, my usual Pi-hole Admin URL, and how I
 SSH into the machine that manages it. An SSH alias or my usual SSH command
@@ -21,16 +21,18 @@ If you only have chat access, guide me one step at a time and use my output
 to choose the next step. Put commands in fenced code blocks labeled by
 machine and shell.
 
-Fetch only the selected patch files over HTTPS on the workstation.
-Verify each downloaded file's SHA-256 before using it.
-
-pihole-dhcp-table.patch
-https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/27baeefcd1060e57e8934773e5a80371eca7534f/patches/pihole-dhcp-table.patch
-SHA-256 0412578cab30d15d7edd13efee9ce5ce7174713b261020db96f93629e8090f24
-
-pihole-query-log-grouping.patch
-https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/27baeefcd1060e57e8934773e5a80371eca7534f/patches/pihole-query-log-grouping.patch
-SHA-256 813d9ec084b4d177b472db5660db6d240cb9e45587f4dc46ec417141434a0e9a
+On each run, resolve refs/heads/main from
+https://github.com/micassa-pics/pihole-awesome-a-fyer.git to its full commit SHA.
+Use that same commit throughout this run. For each selected feature, fetch
+its GitHub Contents API record from
+https://api.github.com/repos/micassa-pics/pihole-awesome-a-fyer/contents/patches/FILENAME?ref=COMMIT
+using pihole-dhcp-table.patch for DHCP and pihole-query-log-grouping.patch
+for Query Log. Decode the base64 content as bytes on the workstation. Check
+that git hash-object --no-filters on the file matches the record's sha, and
+compute its SHA-256 for comparison with the installation report. Compare
+patch contents per feature: a README change or a change to the other patch
+is not an update to this one. If the lookup fails, report the available
+version as unknown and stop before installing an unverified update.
 
 The DHCP patch touches settings-dhcp.lp, scripts/js/settings-dhcp.js and
 scripts/js/footer.js. The Query Log patch touches scripts/js/queries.js.
@@ -57,20 +59,40 @@ patches and their target files for staging, backup, deployment and reporting.
 
 3. Copy the selected target files into a private staging tree with their paths
    intact. Record their hashes, permissions, ownership, and any symlinks.
-   Keep a timestamped recovery copy outside the web root and disposable
-   containers. For managed deployments also record the current revision,
-   image digest, and rollback procedure. The workstation can stage the files
-   if Git is unavailable on the target.
+   Use the workstation for staging. Read any previous installation report
+   or recovery copy as evidence of the revision installed on this instance.
 
-4. From the staged web root, run git apply --check for each selected patch. If it
-   fails, try git apply --reverse --check to identify an installed patch.
-   Apply the missing patches to staging and verify the combined result.
-   If all selected patches are already installed, go straight to verification. If a
-   patch is ambiguous, partially applied, or incompatible, identify the
-   conflicting files before making live changes. Ask before porting a
-   patch or upgrading Pi-hole.
+4. Determine each selected patch's status from the staged files.
+   - Current: The latest patch reverses cleanly and its changes are present.
+     If the report names an older patch, check its differences from the
+     latest one against the actual files before declaring it current.
+     Skip deployment for this feature.
+   - Update available: The installed revision differs from the latest one.
+     Find its exact patch from the recorded commit and verify its SHA-256.
+     Without a reliable report, use the GitHub commit history for this patch
+     path up to the resolved commit, following pagination. Try distinct
+     historical patch contents on fresh staging copies. Confirm the old
+     patch's blob ID and include any paths it formerly changed in the staging
+     and backup. Confirm it reverses cleanly to the baseline for the installed Web
+     version. Inspect the differences against that baseline so unrelated
+     edits survive. Reverse the identified old patch in staging, then run
+     git apply --check and apply the latest patch there. Verify the result.
+   - Not installed: The affected areas match the stock Web version (or a
+     verified unpatched backup) and the latest patch applies cleanly.
+     Verify a fresh install in staging. This can happen after a Pi-hole
+     update even when an older installation report exists.
+   - Conflict or unknown: If checks disagree, multiple revisions fit, or
+     the staged upgrade fails, report the affected files. Stop before
+     deploying any part of the selected batch. Ask before porting a patch
+     or upgrading Pi-hole itself.
 
-5. Confirm the live file hashes or deployment revision still match the
+   Report installed and available revisions per feature. For a check-only
+   request, finish here. If everything is current, finish without a write.
+
+5. Before deploying, keep a timestamped recovery copy of the current files
+   outside the web root and disposable containers. For managed deployments
+   also record the current revision, image digest, and rollback procedure.
+   Confirm the live file hashes or deployment revision still match the
    originals. Deploy the complete validated change once, preserving file
    metadata, settings, volumes, leases, query history and existing customizations
    outside the selection. Verify the served

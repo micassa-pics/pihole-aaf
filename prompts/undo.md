@@ -22,20 +22,16 @@ If you only have chat access, guide me one step at a time and use my output
 to choose the next step. Put commands in fenced code blocks labeled by
 machine and shell.
 
-Locate the install report or recovery copy for each selected patch and
-identify its installed revision. If the report records a different commit
-from the links below, use that patch's recorded commit and hash instead.
-
-Fetch only the selected patch files over HTTPS on the workstation.
-Verify each downloaded file's SHA-256 before using it.
-
-pihole-dhcp-table.patch
-https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/27baeefcd1060e57e8934773e5a80371eca7534f/patches/pihole-dhcp-table.patch
-SHA-256 0412578cab30d15d7edd13efee9ce5ce7174713b261020db96f93629e8090f24
-
-pihole-query-log-grouping.patch
-https://raw.githubusercontent.com/micassa-pics/pihole-awesome-a-fyer/27baeefcd1060e57e8934773e5a80371eca7534f/patches/pihole-query-log-grouping.patch
-SHA-256 813d9ec084b4d177b472db5660db6d240cb9e45587f4dc46ec417141434a0e9a
+Locate the installation report or backup for each selected patch. Use the
+exact installed revision for removal, even when GitHub has a newer one.
+From https://github.com/micassa-pics/pihole-awesome-a-fyer fetch the selected
+file at its recorded commit under patches/: pihole-dhcp-table.patch for DHCP
+or pihole-query-log-grouping.patch for Query Log. Verify the recorded SHA-256.
+Without a reliable report, resolve main to a commit and inspect the history
+of that patch file up to that commit, including older pages. Retrieve distinct
+revisions by commit and verify the bytes against GitHub's blob IDs. Identify
+the installed revision by trial reversal on fresh staging copies and comparison
+with the matching stock Web files or a verified unpatched backup.
 
 The DHCP patch touches settings-dhcp.lp, scripts/js/settings-dhcp.js and
 scripts/js/footer.js. The Query Log patch touches scripts/js/queries.js.
@@ -49,7 +45,8 @@ Paths are relative to the Pi-hole web interface directory.
 
 2. Stage the current files targeted by the selection. Check each selected patch
    with git apply --reverse --check and git apply --check. Reverse a
-   cleanly installed patch in staging. Skip one already absent. If results
+   cleanly installed patch in staging. Skip one already absent after checking
+   its affected areas against the stock Web version or backup. If results
    are ambiguous, compare with stock files from the exact installed Web
    version and any verified backup. If you cannot isolate the customization,
    stop before deploying and explain the conflict. Preserve later edits.

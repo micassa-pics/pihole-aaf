@@ -10,6 +10,8 @@ Unofficial web interface patches for Pi-hole v6. Manage DHCP reservations from t
 
 Copy the install prompt into your LLM and choose **DHCP only**, **Query Log only**, or **both**. It asks how to reach your Pi-hole, then fetches and checks your selected patches. The undo prompt offers the same choices.
 
+To check for a newer version, run the [install or update prompt](prompts/install.md) and say **“check for updates only.”** It compares each selected patch with GitHub and reports its status. During an upgrade it tests replacing the installed revision in staging before changing the live web files.
+
 <a name="dhcp"></a>
 
 ## awesome-a-fyer the dhcp page
