@@ -27,7 +27,6 @@ This project provides two independent patches for the Pi-hole v6 web interface. 
 
 ## awesome-a-fyer the dhcp page
 
-Select the eye beside an active lease or static reservation to see queries from that IP address.
 
 The DHCP page opens in Expert mode. Select a section heading to expand or collapse it.
 
@@ -39,6 +38,9 @@ The DHCP page opens in Expert mode. Select a section heading to expand or collap
 2. Select **+** to the right of the eye. A draft opens at the bottom of **Static DHCP configuration**.
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
 4. Select **Save & Apply** to save the confirmed reservation.
+
+**Select the eye beside an active lease or static reservation to see queries from that IP address.**
+
 
 ![Active DHCP leases. The bottom three leases can be added to the static list.](assets/active-dhcp-leases.jpg)
 
