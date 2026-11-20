@@ -50,7 +50,6 @@ Search or sort static reservations by IP address, hostname, or MAC address. To e
 ![Static DHCP configuration with IP address, hostname, MAC address, and action columns](assets/static-dhcp-reservations.jpg)
 
 
-*The tables show fictional devices and addresses.*
 
 ## Compatibility
 
