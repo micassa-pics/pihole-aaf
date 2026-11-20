@@ -70,6 +70,8 @@ Tap an IP or MAC address in either DHCP table to copy it. **Copied** appears bri
 
 Long client IDs appear in a tinted, read-only field. Tap once to copy the full ID. **Copied** appears briefly when the copy succeeds. If the browser blocks copying, the ID stays selected for manual copying.
 
+Under **Currently active DHCP leases**, select a name in **Groups** to edit that IP address. Select the groups and choose **Save groups**. The change takes effect separately from **Save & Apply**. If another device later gets this IP, it uses the same groups. If the lease could inherit an interface rule, the table shows **Check interface rule**.
+
 The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. A dash means Pi-hole has no per-IP history for that lease.
 
 In this example, the top three devices already have reservations. The bottom three have a **+** button.
