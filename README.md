@@ -66,7 +66,7 @@ Select the eye beside an active lease or static reservation to see queries from 
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
 4. Select **Save & Apply** to save the confirmed reservation.
 
-Long client IDs appear in a tinted, read-only field. Tap once to select the full ID, then choose **Copy**.
+Long client IDs appear in a tinted, read-only field. Tap once to copy the full ID. **Copied** appears briefly when the copy succeeds. If the browser blocks copying, the ID stays selected for manual copying.
 
 The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. A dash means Pi-hole has no per-IP history for that lease.
 
