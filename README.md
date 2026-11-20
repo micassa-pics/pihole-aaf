@@ -15,6 +15,7 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Group requests by client, domain, and query type.
 - Sort by count. See when requests occurred across 24 bars.
 - Switch between **All**, **Blocked**, and **Allowed**. Keep the current client filter.
+- **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
 [![Query Log before and after.](assets/queries-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
 
@@ -29,6 +30,7 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Select **+** beside a lease. Edit the **New** row at the top of the static table. Select the checkmark to save.
 - Edit hostnames and groups in place. Use **Save & Apply** only for deletions.
 - Check lease time remaining and DNS activity for the past 24 hours.
+- **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
 [![DHCP before and after.](assets/dhcp-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
 
