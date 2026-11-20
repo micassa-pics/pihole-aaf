@@ -16,9 +16,9 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Sort by count. See when requests occurred across 24 bars.
 - Switch between **All**, **Blocked**, and **Allowed**. Keep the current client filter.
 
-[![Query Log before and after. Select to drag the divider.](assets/queries-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
+[![Query Log before and after.](assets/queries-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
 
-[Drag the slider](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries) · [Query Log guide](queries.md)
+[Query Log guide](queries.md)
 
 <a name="dhcp"></a>
 
@@ -30,6 +30,6 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Edit hostnames and groups in place. Use **Save & Apply** only for deletions.
 - Check lease time remaining and DNS activity for the past 24 hours.
 
-[![DHCP before and after. Select to drag the divider.](assets/dhcp-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
+[![DHCP before and after.](assets/dhcp-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
 
-[Drag the slider](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp) · [DHCP guide](dhcp.md)
+[DHCP guide](dhcp.md)
