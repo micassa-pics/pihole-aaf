@@ -1,12 +1,13 @@
 diff --git a/queries.lp b/queries.lp
-index dd07cfd..908dfe6 100644
+index dd07cfd..1a6bed9 100644
 --- a/queries.lp
 +++ b/queries.lp
-@@ -198,6 +198,11 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -198,6 +198,12 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  
  <script src="<?=pihole.fileversion('vendor/bootstrap-select/bootstrap-select.min.js')?>"></script>
  <script src="<?=pihole.fileversion('vendor/daterangepicker/daterangepicker.min.js')?>"></script>
 +<style>
++    #all-queries > :is(thead,tbody,tfoot) > tr > :is(th,td) { vertical-align: middle; }
 +    .DTCR_clonedTable, .DTCR_pointer { z-index: 1050; pointer-events: none; }
 +    .DTCR_pointer { width: 2px; background: currentColor; }
 +</style>
@@ -629,7 +630,7 @@ index 9fbcc19..92a13aa 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..9605d5d 100644
+index 2b7138e..efda34e 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -666,7 +667,7 @@ index 2b7138e..9605d5d 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.3";
++  const version = "1.1.4";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;

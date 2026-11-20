@@ -17,7 +17,7 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Switch between **All**, **Blocked**, and **Allowed**. Keep the current client filter.
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
-[![Query Log before and after.](assets/queries-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
+[![Query Log before and after.](assets/queries-centered.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
 
 [Query Log guide](queries.md)
 
@@ -32,6 +32,6 @@ Two optional patches for the Pi-hole v6 web interface. Install either page or bo
 - Check lease time remaining and DNS activity for the past 24 hours.
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
-[![DHCP before and after.](assets/dhcp-comparison.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
+[![DHCP before and after.](assets/dhcp-centered.svg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
 
 [DHCP guide](dhcp.md)

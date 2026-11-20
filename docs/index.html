@@ -62,6 +62,10 @@ for (const slider of document.querySelectorAll(".slider")) {
     slider.parentElement.style.setProperty("--position", slider.value + "%");
     slider.setAttribute("aria-valuetext", slider.value + "% before");
   }
+  window.addEventListener("pageshow", () => {
+    slider.value = slider.defaultValue;
+    update();
+  });
   slider.addEventListener("input", update);
   update();
 }
