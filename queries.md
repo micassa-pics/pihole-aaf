@@ -1,16 +1,22 @@
 # awesome-a-fyer the queries page
 
-Open **Query Log** from the Pi-hole sidebar. If you also installed the DHCP patch, the eye beside an active lease opens queries for that client.
+Open **Query Log** from the Pi-hole sidebar. If you also use the DHCP patch, select the eye beside a lease to see that client's queries.
 
-![Grouped Recent Queries with the All filter selected and results sorted by Count](assets/grouped-query-log.png)
+## Group repeated queries
 
-In this fictional example, the same client made 240 A queries and 185 AAAA queries for `calendar.example`. Each query type gets its own row.
+Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
 
-- **Group** combines requests with the same domain, query type, and client IP across all pages of the filtered results. **Count** replaces reply time and shows how many requests each row represents.
-- The button beside **Group** cycles through **All**, **Blocked**, and **Allowed**. It works in both views and keeps the selected client filter.
-- Select a grouped row to inspect its latest matching query. **Mixed** means the requests in that group had different results.
-- Select **Refresh** to include newer requests, or **Ungroup** to return to individual requests and their reply times.
+![Grouped Recent Queries with the All filter active. The Count column shows the largest groups first.](assets/grouped-query-log.png)
 
-To install just this feature, open the [copyable prompt](prompts/manage.md), choose **Query Log**, then **Install/update**.
+In this example, one client sent 240 A queries and 185 AAAA queries for `calendar.example`. Each query type has its own row. The example uses fictional data.
+
+## Filter and inspect results
+
+- Select the button beside **Group** or **Ungroup** to cycle through **All**, **Blocked**, and **Allowed**. Your client filter stays active.
+- Select a group to inspect its latest query. **Mixed** means the queries in that group had different results.
+- Select **Refresh** to include newer requests.
+- Select **Ungroup** to see individual requests and their reply times.
+
+To install the Query Log patch alone, choose **Query Log** in the [shared prompt](prompts/manage.md). Then choose **Install/update**.
 
 [Query Log patch](patches/pihole-query-log-grouping.patch) · [Back to the README](README.md)

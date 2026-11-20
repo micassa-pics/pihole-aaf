@@ -1,124 +1,148 @@
 # Manage Pi-hole Awesome-a-fyer
 
-Copy the full block into your LLM. It will ask which page you want to change before asking how to reach your Pi-hole. For a read-only version comparison, choose **Check only**.
+Copy the entire block into your AI assistant. Choose **Check only** to compare versions without changing Pi-hole.
 
 ```text
-First ask me: “Which Pi-hole page: DHCP, Query Log, or both?”
-Then ask: “What would you like to do: check only, install/update, or undo?”
-Use any choices I already gave you. Wait for both choices before downloading
-patches or connecting. Work only on the selected features.
+First ask me which Pi-hole page I want: DHCP, Query Log, or both.
+Then ask which action I want: Check only, Install/update, or Undo.
+Use any choice I already gave you. Wait for both choices before you
+download a patch or connect to a device. Work only on the selected pages.
 
-Connect to my Pi-hole
+Find my Pi-hole
 
-Ask for the device address, my usual Admin URL, and how I normally SSH in.
-A host alias or SSH command is sufficient. Ask for a jump host, port, or
-local key path if needed. The SSH host and web address can be different.
-Use SSH host-key verification and let me enter secrets in my own terminal.
+Ask for the device address, my usual Pi-hole Admin URL, and my SSH command
+or alias. The SSH host can differ from the web host. If necessary, ask
+for the jump host, port, or local key path. Verify the SSH host key.
+Let me enter credentials in my own terminal.
+
 If SSH is unavailable, ask which console or deployment project I can use.
-If you only have chat access, give one step at a time with commands in
-fenced blocks labeled by machine and shell.
+If you have only chat access, give me one step at a time.
+Put commands in fenced blocks. Label each block with the machine and shell.
 
-Find what serves the UI
+Identify the running instance and its Web and FTL versions.
+If several instances match, ask which one I want.
+Find the directory that supplies the admin pages. Check the webroot,
+webhome, and any reverse-proxy prefix.
 
-Identify the running instance, Web and FTL versions, served admin directory,
-and persistent owner of the files. Account for custom webroot, webhome and
-reverse-proxy prefixes. If several instances match, ask which one I mean.
-On a dedicated device, VM or LXC, work inside the OS serving Pi-hole. For
-Docker, Podman, Compose or a NAS app, identify the service, image and mounts.
-For Kubernetes, Helm, GitOps or other managed deployments, trace the workload
-to its deployment definition and account for each serving replica.
+Find where to make a lasting change:
+- Device, VM, or LXC: Find the files in the OS that serves Pi-hole.
+- Docker, Podman, Compose, or NAS app: Identify the service, image,
+  and mounts. A mount for /etc/pihole alone does not save web files.
+- Kubernetes, Helm, GitOps, or another managed system: Find the
+  deployment definition. Identify each replica that serves the UI.
 
-Find the patches and identify the installed versions
+Get the selected patches
 
-1. Look up https://api.github.com/repositories/1464872803 and resolve
-   refs/heads/main from its clone_url to a full commit SHA for this run.
-   For each selected feature, request its GitHub Contents API record at
-   <returned API url>/contents/patches/<filename>?ref=<commit>.
-   Decode the base64 bytes on the workstation. Compare git hash-object
-   --no-filters for the downloaded file with the record's sha, and compute
-   its SHA-256 for the report. If the lookup fails, report that the latest
-   version is unknown. Stop before installing an unverified update.
+1. Read the GitHub repository record:
+   https://api.github.com/repositories/1464872803
+   Use its clone_url to resolve refs/heads/main to a full commit SHA.
+   Use that commit throughout this run.
 
-   DHCP: pihole-dhcp-table.patch currently touches settings-dhcp.lp,
-   scripts/js/settings-dhcp.js and scripts/js/footer.js.
-   Query Log: pihole-query-log-grouping.patch currently touches
-   scripts/js/queries.js. Inspect the selected diffs for their exact paths.
-   All paths are relative to the web interface directory.
+2. Choose the patch file for each selected page.
+   DHCP uses pihole-dhcp-table.patch. It changes settings-dhcp.lp,
+   scripts/js/settings-dhcp.js, and scripts/js/footer.js.
+   Query Log uses pihole-query-log-grouping.patch.
+   It changes scripts/js/queries.js.
+   Check the paths in each patch against the web interface directory.
 
-2. Copy selected target files into private staging on the workstation.
-   Record their paths, hashes, permissions, ownership and symlinks. Read any
-   installation report or unpatched backup. Determine the state of each
-   feature independently by comparing actual files and patch contents.
-   A documentation-only commit does not change a patch's version.
+3. Append /contents/patches/<filename>?ref=<commit> to the record's API url.
+   Fetch the file record. Decode its base64 content on the workstation.
+   Run git hash-object --no-filters on the file.
+   Compare the result with the file record's sha. Calculate the file's
+   SHA-256 for the report. If you cannot verify the latest version,
+   report it as unknown. Stop before installing an unverified update.
 
-   Current: The latest patch's changes are present and it reverses cleanly
-   in staging with git apply --reverse --check. Resolve any disagreement
-   with the install report against stock files from the installed Web version.
+Identify the installed version
 
-   Older version installed: Retrieve the recorded patch by commit, verify
-   its SHA-256, and test its reversal on a fresh staged copy. Without a
-   reliable report, check the selected patch path's GitHub commit history,
-   following pagination. Verify candidate blob IDs, try each distinct version
-   on its own copy, and confirm the result against stock files or a verified
-   backup. Include any files the older version changed.
+Copy the target files to a private staging directory on the workstation.
+Record their paths, hashes, permissions, owners, and symbolic links.
+Read any installation report or backup. Check each selected patch
+separately. Compare patch contents. A README change alone does not
+change the patch version.
 
-   Missing: The affected areas match this Web version's stock files or a
-   verified unpatched backup, and the latest patch passes git apply --check.
-   A Pi-hole update can remove a previously recorded patch.
+Use these checks to identify each patch:
 
-   Conflict or unknown: If a patch is partially applied, several revisions
-   fit, or the installed Web version is incompatible, identify the conflicting
-   files and stop before changing any part of the live batch. Ask before
-   porting a patch or upgrading Pi-hole itself.
+- Current. Check that the files contain the latest changes.
+  Test reversal in staging with git apply --reverse --check.
+  If the report disagrees, compare the files with the stock files for
+  the running Web version. Stock files come from the original Pi-hole release.
 
-Carry out my chosen action
+- Older version. Get the installed patch from its recorded commit.
+  Verify its recorded SHA-256. Test reversal on a fresh staging copy.
+  If the report is missing or unreliable, search the patch file's commit
+  history. Check older pages of results. Verify each candidate's Git blob ID.
+  Test each distinct version on a separate copy. Compare the result with
+  the matching stock files or a verified unpatched backup. Include files
+  that only the older patch changed.
 
-- Check only: Report the installed and available patch revisions and each
-  feature's status. Finish here with no live changes.
-- Install/update: Skip current features. For an older installation, reverse
-  the identified installed patch in staging first. Apply the latest selected
-  patch to the staged files after git apply --check. Compare the result to
-  the intended changes and preserve unrelated edits.
-- Undo: Skip absent features. Reverse the exact installed patch in staging,
-  even when GitHub has a newer version. Verify that only the selected
-  customizations were removed. Preserve any unselected patch.
+- Missing. Check the affected areas against the matching stock files or
+  a verified unpatched backup. Test the latest patch with git apply --check.
+  A Pi-hole update can remove a patch.
 
-If the batch needs no changes, report that and finish. Otherwise validate
-the whole batch before deployment. Keep a timestamped recovery copy outside
-the web root and disposable containers. For managed deployments, record
-the image digest or revision and rollback procedure. Recheck the live file
-hashes or deployment revision before switching to the validated result.
+- Conflict or unknown. Stop if only part of a patch matches, several
+  revisions fit, or the Web version is incompatible. Identify the files
+  in question. Keep the live installation intact. Ask before adapting
+  the patch or upgrading Pi-hole.
 
-Apply at the persistent source. Update native web files or the source of a
-web mount. For image-owned or read-only files, use the existing build and
-deployment mechanism; /etc/pihole alone does not persist web assets. On
-undo, adjust any build step that would reapply the removed patch, retaining
-the other patch if selected previously. If the only option is a temporary
-container edit, explain when it expires and ask whether I want that.
-Ask before a DNS/DHCP interruption, a serving-instance replacement, or
-publication of an image outside my deployment. Deploy once, preserve file
-metadata, and check what each replica actually serves. On partial failure,
-restore the pre-operation files or deployment and verify recovery.
+Perform the selected action
 
-Verify the selected pages through my usual Admin URL in a fresh browser
-session. Let me sign in locally. Use read-only checks and cancel any test
-drafts or deletion prompts. For an installation or update:
+- Check only. Report the status and available revision for each selected
+  patch. Include the installed revision if you can identify it. Stop here.
 
-- DHCP: Check Expert mode, collapsible sections, static search and sorting.
-  On an eligible lease, + should reopen a collapsed static table with an
-  editable draft. The checkmark stages the draft for Save & Apply and the
-  curved arrow cancels it. Verify the eye link opens queries for that client.
-  A reserved lease has no +.
-- Query Log: Open it from the sidebar. Check Group, Count, Ungroup and the
-  All / Blocked / Allowed toggle with the client filter retained. Compare
-  group counts to the same fixed-time API result if data is available.
+- Install/update. Skip current patches. For an update, reverse the exact
+  older patch in staging. Run git apply --check for the latest patch.
+  Apply it to the staged files. Verify the changes. Preserve unrelated edits.
 
-For undo, verify that the selected pages have returned to their expected
-pre-patch behavior. Report the target and Web version, selected pages and
-action, installed and available revisions and hashes, checks performed,
-any unverified UI behavior, and (if live files changed) the recovery copy,
-exact rollback commands, and what survives an update or replacement.
-Keep credentials, reservation details and client query histories out of the report.
+- Undo. Skip missing patches. Reverse the exact installed revision in
+  staging. Check that the staged changes remove only the selected patches.
+
+Deploy the changes
+
+If the action requires no changes, report the result and finish.
+Otherwise, verify all selected changes together. Make a timestamped recovery
+copy outside the web root and any disposable container. For a managed
+deployment, record the image digest or revision and the rollback procedure.
+Recheck the live file hashes or deployment revision before deployment.
+If they changed during staging, check the new state before proceeding.
+
+Update the native web files, the source of the web mount, or the existing
+image build or deployment definition. For Undo, remove any step that
+reapplies the selected patch. Preserve any other patch.
+If only a temporary container edit is possible, explain when it will expire.
+Ask me whether to use it.
+
+Ask before interrupting DNS or DHCP, replacing a running instance, or
+publishing an image outside my deployment. Deploy the verified changes
+once. Preserve file permissions, ownership, and links. Check the served
+files on each replica. If deployment fails partway, restore the previous
+files or revision. Verify recovery.
+
+Check the result
+
+Open my Admin URL in a fresh browser session. Let me sign in locally.
+Check only the selected pages. Use read-only checks. Cancel any test
+drafts or delete prompts.
+
+- DHCP install/update. Check Expert mode and the collapsible headings.
+  Test search and sorting in the static table. Collapse the static section.
+  If an active lease has a + button, select it. The static section should
+  open with an editable draft. The checkmark confirms it for Save & Apply.
+  The curved arrow cancels it. A lease with a reservation has no + button.
+  Check that the eye opens queries for the selected client.
+
+- Query Log install/update. Open Query Log from the sidebar. Check Group,
+  Count, and Ungroup. Cycle through All, Blocked, and Allowed.
+  Check that the client filter stays active. If records are available,
+  compare group counts with the API results for the same fixed time range.
+
+- Undo. Check that each selected page works as it did before the patch.
+
+Report the target, Web version, selected pages, and action. Include the
+installed and available patch revisions and hashes. List the checks that
+passed and any checks you could not complete. If live files changed,
+give the recovery location and exact rollback commands. Explain what
+survives an update or container replacement. Keep credentials, reservation
+details, and client query histories out of the report.
 ```
 
 [Patch files](../patches/README.md) · [Back to the README](../README.md)

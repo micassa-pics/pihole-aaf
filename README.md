@@ -1,42 +1,55 @@
 # Pi-hole Awesome-a-fyer
 
-Two independent patches for the Pi-hole v6 web interface. **DHCP** lets you turn an active lease into a static reservation. **Query Log** groups repeated requests and shows how often each one occurred.
+This project provides two independent patches for the Pi-hole v6 web interface. You can install either patch or both.
 
 <a name="query-log"></a>
 
-[awesome-a-fyer the dhcp page](#awesome-a-fyer-the-dhcp-page) · [awesome-a-fyer the queries page](queries.md)
+| Page | What you can do |
+| --- | --- |
+| [DHCP](#awesome-a-fyer-the-dhcp-page) | Create a static reservation from an active lease. |
+| [Query Log](queries.md) | Group repeated DNS queries and count requests from each client. |
 
 ## Get started
 
-**[Open the copyable prompt](prompts/manage.md)** and paste the full block into your LLM.
+1. Copy the entire block from the [shared prompt](prompts/manage.md).
+2. Paste it into your AI assistant.
+3. Choose **DHCP**, **Query Log**, or **both**.
+4. Choose an action from the table below.
+5. Give the assistant your Pi-hole Admin URL and your usual SSH command or alias.
 
-1. Choose **DHCP**, **Query Log**, or **both**.
-2. Choose **Check only**, **Install/update**, or **Undo**.
-3. Give the LLM your Pi-hole Admin URL and usual SSH alias or command. It will identify the installation and check the selected patches against the files serving your UI.
-
-Use **Check only** to see whether a newer patch is available. **Install/update** skips pages that are already current. **Undo** removes the installed revision for the pages you chose. [Browse the patch files](patches/README.md).
+| Action | Result |
+| --- | --- |
+| **Check only** | Compares installed patches with GitHub. Leaves live files intact. |
+| **Install/update** | Installs missing patches and updates older ones. Skips current patches. |
+| **Undo** | Removes the installed patch from each selected page. |
 
 <a name="dhcp"></a>
 
 ## awesome-a-fyer the dhcp page
 
-![DHCP Settings in Expert mode with all five sections collapsed](assets/dhcp-sections-collapsed.png)
+The DHCP page opens in Expert mode. Select a section heading to expand or collapse it.
 
-- Open the page in Expert mode. Toggle each settings or lease section by its heading.
-- Search, sort, and page through static reservations by IP address, hostname, or MAC address.
-- Use **+** beside an eligible active lease to open an editable reservation draft. Select the checkmark to stage it for **Save & Apply**, or the curved arrow to cancel. The eye opens queries for that client.
-- Confirm lease deletions and expand **Manual Edit Static DHCP Entries** for advanced configurations.
+![DHCP Settings with all five sections collapsed](assets/dhcp-sections-collapsed.png)
 
-![Six active DHCP leases. The bottom three have a plus button between the trash and eye icons.](assets/active-dhcp-leases.png)
+### Create a static reservation
 
-The top three devices already have static reservations. For any of the bottom three, select **+** to review and edit a new reservation.
+1. Find the device under **Currently active DHCP leases**.
+2. Select **+** beside the lease. A draft opens at the bottom of **Static DHCP configuration**.
+3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
+4. Select **Save & Apply** to save the confirmed reservation.
 
-![Static DHCP reservations with IP address, hostname, MAC address, and controls for adding or deleting a reservation](assets/static-dhcp-reservations.png)
+![Active DHCP leases. The bottom three rows have a plus button between the trash and eye icons.](assets/active-dhcp-leases.png)
 
-*Both tables use fictional device names and network addresses.*
+In this example, the top three devices already have reservations. The bottom three have a **+** button. Select the eye beside any lease to see queries from that client.
+
+![Static DHCP configuration with IP address, hostname, MAC address, and action columns](assets/static-dhcp-reservations.png)
+
+Search or sort reservations by IP address, hostname, or MAC address. To edit the entries as text, open **Manual Edit Static DHCP Entries**. Pi-hole asks for confirmation when you delete a lease or reservation.
+
+*The tables show fictional devices and addresses.*
 
 ## Compatibility
 
-The installer checks the actual web files before applying either patch. Run that check again after a Pi-hole update. The install prompt covers native systems, system containers, Docker or Podman, and managed deployments.
+The prompt covers native installations, system containers, Docker, Podman, and managed deployments. After a Pi-hole update, run **Check only** again. The update can replace the patched web files.
 
-Pi-hole and its web interface are maintained by the [Pi-hole project](https://github.com/pi-hole/web).
+[Browse the patches](patches/README.md) · [Pi-hole web interface project](https://github.com/pi-hole/web)
