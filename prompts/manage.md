@@ -56,6 +56,9 @@ Identify the installed version
 
 Copy the target files to a private staging directory on the workstation.
 Record their paths, hashes, permissions, owners, and symbolic links.
+Keep the original line endings when you copy files. In staging, use
+git -c core.autocrlf=false apply for every Git apply command below.
+This preserves the Linux files when you use Git on Windows.
 Read any installation report or backup. Check each selected patch
 separately. Compare patch contents. A README change alone does not
 change the patch version.
@@ -69,7 +72,8 @@ Use these checks to identify each patch:
 
 - Older version. Get the installed patch from its recorded commit.
   Verify its recorded SHA-256. Test reversal on a fresh staging copy.
-  If the report is missing or unreliable, search the patch file's commit
+  If the recorded commit is unavailable or the report is missing or unreliable,
+  search the patch file's commit
   history. Check older pages of results. Verify each candidate's Git blob ID.
   Test each distinct version on a separate copy. Compare the result with
   the matching stock files or a verified unpatched backup. Include files
