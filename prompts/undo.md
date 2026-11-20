@@ -24,8 +24,9 @@ machine and shell.
 
 Locate the installation report or backup for each selected patch. Use the
 exact installed revision for removal, even when GitHub has a newer one.
-From https://github.com/micassa-pics/pihole-awesome-a-fyer fetch the selected
-file at its recorded commit under patches/: pihole-dhcp-table.patch for DHCP
+Look up https://api.github.com/repositories/1464872803 to get the project's
+current GitHub URL. Fetch the selected file from that repository at its
+recorded commit under patches/: pihole-dhcp-table.patch for DHCP
 or pihole-query-log-grouping.patch for Query Log. Verify the recorded SHA-256.
 Without a reliable report, resolve main to a commit and inspect the history
 of that patch file up to that commit, including older pages. Retrieve distinct

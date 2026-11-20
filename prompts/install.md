@@ -21,11 +21,11 @@ If you only have chat access, guide me one step at a time and use my output
 to choose the next step. Put commands in fenced code blocks labeled by
 machine and shell.
 
-On each run, resolve refs/heads/main from
-https://github.com/micassa-pics/pihole-awesome-a-fyer.git to its full commit SHA.
-Use that same commit throughout this run. For each selected feature, fetch
-its GitHub Contents API record from
-https://api.github.com/repos/micassa-pics/pihole-awesome-a-fyer/contents/patches/FILENAME?ref=COMMIT
+On each run, look up the project by its permanent GitHub repository ID:
+https://api.github.com/repositories/1464872803
+Use the returned clone_url to resolve refs/heads/main to its full commit SHA.
+Use that same commit throughout this run. For each selected feature, append
+/contents/patches/FILENAME?ref=COMMIT to the returned API url,
 using pihole-dhcp-table.patch for DHCP and pihole-query-log-grouping.patch
 for Query Log. Decode the base64 content as bytes on the workstation. Check
 that git hash-object --no-filters on the file matches the record's sha, and
