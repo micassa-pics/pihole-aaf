@@ -50,7 +50,7 @@ index af99c0a..dc2d854 100644
    } else {
      for (const element of expertSettingsNodes) element.classList.toggle("d-none", true);
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..5c849a7 100644
+index 27adb7b..2d2dd01 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,12 @@
@@ -132,17 +132,30 @@ index 27adb7b..5c849a7 100644
      ajax: {
        url: document.body.dataset.apiurl + "/dhcp/leases",
        type: "GET",
-@@ -44,7 +94,8 @@ $(() => {
+@@ -43,8 +93,20 @@ $(() => {
+       { data: "name", render: renderHostnameCLID },
        { data: "hwaddr" },
        { data: "expires", render: utils.renderTimespan },
-       { data: "clientid", render: renderHostnameCLID },
+-      { data: "clientid", render: renderHostnameCLID },
 -      { data: null, width: "22px", orderable: false },
++      {
++        data: "clientid",
++        width: "1%",
++        render(data, type) {
++          if (type !== "display") return renderHostnameCLID(data, type);
++          if (!data || data === "*") return '<span class="lease-client-id"><em>---</em></span>';
++          // Seven colon-separated octets occupy 20 monospace characters.
++          const scale = Math.min(1, 20 / data.length);
++          return '<span class="lease-client-id"><span style="font-size:' + (100 * scale) + '%">' +
++            utils.escapeHtml(data) + "</span></span>";
++        },
++      },
 +      { data: null, defaultContent: "", searchable: false, orderable: false, className: "lease-activity" },
 +      { data: null, width: "72px", orderable: false, className: "text-nowrap lease-actions" },
      ],
      columnDefs: [
        {
-@@ -61,9 +112,13 @@ $(() => {
+@@ -61,9 +123,13 @@ $(() => {
        },
      ],
      drawCallback() {
@@ -159,10 +172,11 @@ index 27adb7b..5c849a7 100644
        const hasRows = this.api().rows({ filter: "applied" }).data().length > 0;
        $(".datatable-bt").css("visibility", hasRows ? "visible" : "hidden");
  
-@@ -72,27 +127,33 @@ $(() => {
+@@ -72,27 +138,34 @@ $(() => {
      },
      rowCallback(row, data) {
        $(row).attr("data-id", data.ip);
++      $(".lease-client-id", row).attr("title", data.clientid);
 +      const activity = leaseActivity?.get(data.ip);
 +      $(".lease-activity", row).html(activity ? queryActivityChart(activity) :
 +        (leaseActivity ? '<span title="No per-IP history available">—</span>' : "…"));
@@ -204,7 +218,7 @@ index 27adb7b..5c849a7 100644
        info: false,
      },
      buttons: [
-@@ -101,7 +162,7 @@ $(() => {
+@@ -101,7 +174,7 @@ $(() => {
          titleAttr: "Select All",
          className: "btn-sm datatable-bt selectAll",
          action() {
@@ -213,7 +227,7 @@ index 27adb7b..5c849a7 100644
          },
        },
        {
-@@ -109,7 +170,7 @@ $(() => {
+@@ -109,7 +182,7 @@ $(() => {
          titleAttr: "Select All",
          className: "btn-sm datatable-bt selectMore",
          action() {
@@ -222,7 +236,7 @@ index 27adb7b..5c849a7 100644
          },
        },
        {
-@@ -123,11 +184,12 @@ $(() => {
+@@ -123,11 +196,12 @@ $(() => {
          titleAttr: "Delete Selected",
          className: "btn-sm datatable-bt deleteSelected",
          action() {
@@ -240,7 +254,7 @@ index 27adb7b..5c849a7 100644
          },
        },
      ],
-@@ -156,70 +218,150 @@ $(() => {
+@@ -156,70 +230,150 @@ $(() => {
          return null;
        }
  
@@ -437,7 +451,7 @@ index 27adb7b..5c849a7 100644
  }
  
  function processDHCPConfig() {
-@@ -237,7 +379,7 @@ function processDHCPConfig() {
+@@ -237,7 +391,7 @@ function processDHCPConfig() {
  
  function parseStaticDHCPLine(line) {
    // Accepts: [hwaddr][,ipaddr][,hostname] (all optional, comma-separated, no advanced tokens)
@@ -446,7 +460,7 @@ index 27adb7b..5c849a7 100644
  
    // If the line is empty, return an object with empty fields
    if (!line.trim())
-@@ -264,7 +406,7 @@ function parseStaticDHCPLine(line) {
+@@ -264,7 +418,7 @@ function parseStaticDHCPLine(line) {
      // Advanced if the part is "infinite", "ignore" or a lease time value
      if (/^(infinite|ignore|\d+(w|W|d|D|h|H|m|M|s|S))$/u.test(part)) return "advanced";
  
@@ -455,7 +469,7 @@ index 27adb7b..5c849a7 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +442,50 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +454,50 @@ function parseStaticDHCPLine(line) {
    };
  }
  
@@ -508,7 +522,7 @@ index 27adb7b..5c849a7 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,10 +498,13 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,10 +510,13 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -525,7 +539,7 @@ index 27adb7b..5c849a7 100644
  
    // Update "data-original-line" to containing the new saved values
    row.attr("data-original-line", lines[rowIdx]);
-@@ -337,19 +515,25 @@ $(document).on("click", ".save-static-row", function () {
+@@ -337,19 +527,25 @@ $(document).on("click", ".save-static-row", function () {
    // then remove highlight colors from all cells on this row
    $("td", row).blur();
  
@@ -558,7 +572,7 @@ index 27adb7b..5c849a7 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -373,12 +557,9 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -373,12 +569,9 @@ $(document).on("click", ".cancel-static-row", function () {
    $(this).siblings(".save-static-row").tooltip("hide").remove();
    $(this).tooltip("hide").remove();
  
@@ -573,7 +587,7 @@ index 27adb7b..5c849a7 100644
    }
  });
  
-@@ -386,6 +567,14 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +579,14 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -588,7 +602,7 @@ index 27adb7b..5c849a7 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,42 +582,131 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,42 +594,131 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -742,7 +756,7 @@ index 27adb7b..5c849a7 100644
    // Add save button (a hint asking to click on the button will be shown below the table - CSS pseudo-element)
    if (row.find(".save-static-row").length === 0) {
      const idx = row.attr("data-row");
-@@ -445,80 +723,86 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +735,86 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
@@ -870,7 +884,7 @@ index 27adb7b..5c849a7 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +815,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +827,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -887,7 +901,7 @@ index 27adb7b..5c849a7 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +882,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +894,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -897,10 +911,10 @@ index 27adb7b..5c849a7 100644
      $(this).attr("title", "Invalid IP address format");
    } else {
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..373d713 100644
+index 1cbc347..5cf2d72 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -13,13 +13,21 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -13,13 +13,27 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
  ?>
@@ -911,6 +925,12 @@ index 1cbc347..373d713 100644
 +    }
 +    /* Keep the disclosure marker on the same line as the box title. */
 +    .page-settings-dhcp details.box > summary.box-header::before { content: none; }
++    #DHCPLeasesTable .lease-client-id {
++        display: inline-block;
++        width: 20ch;
++        font-family: monospace;
++        white-space: nowrap;
++    }
 +</style>
  <div class="row">
      <!-- DHCP Settings Box -->
@@ -925,7 +945,7 @@ index 1cbc347..373d713 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +92,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +98,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -943,7 +963,7 @@ index 1cbc347..373d713 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,17 +139,17 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,17 +145,17 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -965,7 +985,7 @@ index 1cbc347..373d713 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -154,6 +162,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -154,6 +168,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                                      <th>MAC address</th>
                                      <th>Expiration</th>
                                      <th>Client ID</th>
@@ -973,7 +993,7 @@ index 1cbc347..373d713 100644
                                      <td></td>
                                  </tr>
                              </thead>
-@@ -163,13 +172,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,13 +178,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -991,7 +1011,7 @@ index 1cbc347..373d713 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -177,9 +186,9 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -177,9 +192,9 @@ mg.include('scripts/lua/settings_header.lp','r')
                              <table id="StaticDHCPTable" class="table table-striped table-bordered nowrap" width="100%">
                                  <thead>
                                      <tr>
@@ -1002,7 +1022,7 @@ index 1cbc347..373d713 100644
                                          <th>Actions</th>
                                      </tr>
                                  </thead>
-@@ -190,6 +199,15 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -190,6 +205,15 @@ mg.include('scripts/lua/settings_header.lp','r')
                          </div>
                      </div>
                  </div>
@@ -1018,7 +1038,7 @@ index 1cbc347..373d713 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +228,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +234,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -1027,7 +1047,7 @@ index 1cbc347..373d713 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,7 +269,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,7 +275,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
