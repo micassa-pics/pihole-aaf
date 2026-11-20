@@ -50,10 +50,10 @@ index af99c0a..dc2d854 100644
    } else {
      for (const element of expertSettingsNodes) element.classList.toggle("d-none", true);
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..f7eabe5 100644
+index 27adb7b..48ae663 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
-@@ -9,8 +9,12 @@
+@@ -9,8 +9,55 @@
  
  "use strict";
  
@@ -65,10 +65,53 @@ index 27adb7b..f7eabe5 100644
 +let staticHostsReadOnly = false;
 +let pendingStaticReservation = null;
 +let leaseActivity = null;
++
++let defaultLeaseTime;
++let hostLeaseTimes = [];
++
++function durationSeconds(value) {
++  const match = /^(\d+)([smhdw]?)$/i.exec(value);
++  if (!match) return NaN;
++  return Number(match[1]) * ({ s: 1, m: 60, h: 3600, d: 86400, w: 604800 }[match[2].toLowerCase()] || 1);
++}
++
++function configureLeaseTimes(config) {
++  defaultLeaseTime = config.leaseTime.value;
++  hostLeaseTimes = [];
++  for (const line of config.hosts.value) {
++    const fields = line.toLowerCase().split(",").map(field => field.trim());
++    const duration = fields.find(field => field === "infinite" || Number.isFinite(durationSeconds(field)));
++    if (duration) hostLeaseTimes.push({ fields, duration });
++  }
++}
++
++function updateExpirationBar(row, lease) {
++  const bar = row.querySelector(".lease-expiration");
++  if (!bar) return;
++  const ids = [lease.ip, lease.hwaddr, lease.name, "id:" + lease.clientid]
++    .filter(id => id && id !== "*").map(id => id.toLowerCase());
++  const override = hostLeaseTimes.find(({ fields }) => fields.some(field => ids.includes(field)));
++  const value = override?.duration ?? defaultLeaseTime;
++  const duration = value === "" ? (lease.ip.includes(":") ? 86400 : 3600) : durationSeconds(value);
++  const remaining = lease.expires - Date.now() / 1000;
++  const percent = lease.expires === 0 ? 100 : Math.max(0, Math.min(100, 100 * remaining / duration));
++  const label = lease.expires === 0 ? "Never" : moment.unix(lease.expires).fromNow();
++  bar.setAttribute("aria-label", "Lease expiration: " + label);
++  bar.setAttribute("data-original-title", label);
++  bar.classList.toggle("unknown-duration", !Number.isFinite(percent));
++  bar.firstElementChild.style.width = (Number.isFinite(percent) ? percent : 0) + "%";
++}
++
++function refreshExpirationBars() {
++  $("#DHCPLeasesTable tbody tr[data-id]").each(function () {
++    const lease = dhcpLeasesTable.row(this).data();
++    if (lease) updateExpirationBar(this, lease);
++  });
++}
  
  // DHCP leases tooltips
  $("body").tooltip({ selector: '[data-toggle="tooltip"]', container: "body" });
-@@ -22,120 +26,245 @@ function renderHostnameCLID(data, type) {
+@@ -22,15 +69,197 @@ function renderHostnameCLID(data, type) {
        return "<em>---</em>";
      }
  
@@ -175,61 +218,90 @@ index 27adb7b..f7eabe5 100644
 +}
 +
 +function setupLeaseGroups() {
-+  const dialog = document.getElementById("lease-group-editor");
-+  const save = $("#save-lease-groups");
-+  const options = $("#lease-group-options");
-+  const status = $("#lease-group-status");
-+  let lease, original;
++  let busy = false;
++  let openButton;
 +  const refresh = data => {
 +    leaseGroupData = data;
 +    dhcpLeasesTable.rows().invalidate("data").draw(false);
 +  };
 +  readLeaseGroups().then(refresh).catch(() => refresh(null));
 +  $("#DHCPLeasesTable").on("click", ".edit-lease-groups", function () {
-+    lease = dhcpLeasesTable.row($(this).closest("tr")).data();
-+    original = leaseMembership(lease, leaseGroupData);
-+    $("#lease-group-address").text(lease.ip);
-+    options.empty();
++    if (busy) return;
++    if (openButton) openButton.siblings(".lease-group-editor").remove().end().show();
++    const button = $(this);
++    const lease = dhcpLeasesTable.row(button.closest("tr")).data();
++    const original = leaseMembership(lease, leaseGroupData);
++    const editor = $(document.getElementById("lease-group-template").content.firstElementChild.cloneNode(true));
++    editor.attr("aria-label", "Groups for " + lease.ip);
++    const status = editor.find("[role=status]");
++    const nameField = editor.find(".lease-group-name");
++    const options = editor.find(".lease-group-options");
 +    for (const group of leaseGroupData.groups) {
 +      const input = $("<input>", { type: "checkbox", value: group.id }).prop("checked", original.ids?.includes(group.id) || false);
 +      $("<div>").append($("<label>").append(input, document.createTextNode(" " + groupLabel(group)))).appendTo(options);
 +    }
-+    status.text(original.ids ? "" : "Interface membership is unknown. Choose the groups for this IP.");
-+    save.prop("disabled", false);
-+    dialog.showModal();
-+  });
-+  $("#cancel-lease-groups").on("click", () => dialog.close());
-+  dialog.addEventListener("cancel", event => { if (save.prop("disabled")) event.preventDefault(); });
-+  save.on("click", async () => {
-+    const ids = options.find("input:checked").map((_, el) => Number(el.value)).get();
-+    save.add("#cancel-lease-groups").add(options.find("input")).prop("disabled", true);
-+    try {
-+      const current = await readLeaseGroups();
-+      const membership = leaseMembership(lease, current);
-+      if (JSON.stringify(membership) !== JSON.stringify(original) ||
-+          JSON.stringify(current.groups) !== JSON.stringify(leaseGroupData.groups)) {
-+        refresh(current);
-+        throw new Error("Group settings changed. Close and reopen the editor.");
++    if (!original.ids) status.text("Interface membership is unknown. Choose the groups for this IP.");
++    openButton = button.hide().after(editor);
++    const close = () => {
++      editor.remove();
++      button.show().trigger("focus");
++      openButton = null;
++    };
++    editor.find(".cancel-lease-groups").on("click", close);
++    nameField.trigger("focus");
++    editor.find(".save-lease-groups").on("click", async () => {
++      if (busy) return;
++      busy = true;
++      const ids = options.find("input:checked").map((_, el) => Number(el.value)).get();
++      const name = nameField.val().trim();
++      editor.find(":input").prop("disabled", true);
++      status.text("Saving...");
++      let created = false;
++      try {
++        const current = await readLeaseGroups();
++        const membership = leaseMembership(lease, current);
++        if (JSON.stringify(membership) !== JSON.stringify(original) ||
++            ids.some(id => !current.groups.some(g => g.id === id))) {
++          close();
++          refresh(current);
++          utils.showAlert("warning", "", "Group settings changed", "Reopen the row to review its groups.");
++          return;
++        }
++        if (name) {
++          const find = groups => groups.find(g => g.name.toLowerCase() === name.toLowerCase());
++          let group = find(current.groups);
++          if (!group) {
++            const result = await $.ajax({
++              url: document.body.dataset.apiurl + "/groups", method: "POST", contentType: "application/json",
++              data: JSON.stringify({ name: [name], comment: "", enabled: true }),
++            });
++            created = Boolean(result.processed?.success?.length);
++            group = find((await readLeaseGroups()).groups);
++            if (!group) throw new Error(result.processed?.errors?.[0]?.error || "Could not create the group.");
++          }
++          if (!ids.includes(group.id)) ids.push(group.id);
++        }
++        const client = membership.exact && membership.rule;
++        const payload = { groups: ids, comment: client?.comment || "" };
++        if (!client) payload.client = [lease.ip];
++        const result = await $.ajax({
++          url: document.body.dataset.apiurl + "/clients" + (client ? "/" + encodeURIComponent(client.client) : ""),
++          method: client ? "PUT" : "POST", contentType: "application/json", data: JSON.stringify(payload),
++        });
++        if (!result.processed?.success?.length || result.processed.errors?.length)
++          throw new Error(result.processed?.errors?.[0]?.error || "Pi-hole could not update this client.");
++        close();
++        refresh(null);
++        refresh(await readLeaseGroups());
++      } catch (error) {
++        const message = error.message || error.responseJSON?.error?.message || "Could not read or save client groups.";
++        if (openButton) status.text((created ? "Group created. " : "") + message);
++        else utils.showAlert("error", "", "Reload DHCP to refresh groups", utils.escapeHtml(message));
++      } finally {
++        busy = false;
++        editor.find(":input").prop("disabled", false);
 +      }
-+      const client = membership.exact && membership.rule;
-+      const payload = { groups: ids, comment: client?.comment || "" };
-+      if (!client) payload.client = [lease.ip];
-+      const result = await $.ajax({
-+        url: document.body.dataset.apiurl + "/clients" + (client ? "/" + encodeURIComponent(client.client) : ""),
-+        method: client ? "PUT" : "POST", contentType: "application/json", data: JSON.stringify(payload),
-+      });
-+      if (!result.processed?.success?.length || result.processed.errors?.length)
-+        throw new Error(result.processed?.errors?.[0]?.error || "Pi-hole could not update this client.");
-+      dialog.close();
-+      refresh(null);
-+      refresh(await readLeaseGroups());
-+    } catch (error) {
-+      const message = error.message || error.responseJSON?.error?.message || "Could not read or save client groups.";
-+      if (dialog.open) status.text(message);
-+      else utils.showAlert("error", "", "Reload DHCP to refresh groups", utils.escapeHtml(message));
-+    } finally {
-+      save.add("#cancel-lease-groups").add(options.find("input")).prop("disabled", false);
-+    }
++    });
 +  });
 +}
 +
@@ -239,28 +311,35 @@ index 27adb7b..f7eabe5 100644
      ajax: {
        url: document.body.dataset.apiurl + "/dhcp/leases",
        type: "GET",
-       dataSrc: "leases",
+@@ -38,104 +267,85 @@ $(() => {
      },
--    order: [[1, "asc"]],
-+    order: [[0, "asc"]],
+     order: [[1, "asc"]],
      columns: [
 -      { data: null, width: "22px" },
++      { data: null, render: renderLeaseGroups },
        { data: "ip", type: "ip-address" },
        { data: "name", render: renderHostnameCLID },
        { data: "hwaddr" },
-       { data: "expires", render: utils.renderTimespan },
+-      { data: "expires", render: utils.renderTimespan },
 -      { data: "clientid", render: renderHostnameCLID },
 -      { data: null, width: "22px", orderable: false },
 -    ],
 -    columnDefs: [
-+      { data: null, render: renderLeaseGroups },
        {
 -        targets: 0,
--        orderable: false,
++        data: "expires",
++        render(value, type) {
++          if (type !== "display") return utils.renderTimespan(value, type);
++          return '<button type="button" class="lease-expiration" data-toggle="tooltip"><span></span></button>';
++        },
++      },
++      {
++        data: "clientid",
++        className: "lease-client-cell",
+         orderable: false,
 -        className: "select-checkbox",
 -        render() {
 -          return "";
-+        data: "clientid",
 +        width: "1%",
 +        render(data, type) {
 +          if (type !== "display") return renderHostnameCLID(data, type);
@@ -293,8 +372,9 @@ index 27adb7b..f7eabe5 100644
      },
      rowCallback(row, data) {
        $(row).attr("data-id", data.ip);
-+      enableAddressCopy($("td:eq(0)", row));
-+      enableAddressCopy($("td:eq(2)", row));
++      updateExpirationBar(row, data);
++      enableAddressCopy($("td:eq(1)", row));
++      enableAddressCopy($("td:eq(3)", row));
 +      const clientIdField = $("input.lease-client-id", row);
 +      if (clientIdField.length) {
 +        clientIdField.closest("td").addClass("lease-client-id-field");
@@ -386,15 +466,16 @@ index 27adb7b..f7eabe5 100644
        "<'row'<'col-sm-12'i>>",
      lengthMenu: [
        [10, 25, 50, 100, -1],
-@@ -147,6 +276,7 @@ $(() => {
+@@ -147,6 +357,8 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
 +      data.leaseIpFirst = true;
++      data.leaseGroupsFirst = true;
        utils.stateSaveCallback("dhcp-leases-table", data);
      },
      stateLoadCallback() {
-@@ -156,70 +286,190 @@ $(() => {
+@@ -156,70 +368,210 @@ $(() => {
          return null;
        }
  
@@ -410,12 +491,24 @@ index 27adb7b..f7eabe5 100644
 +        data.columns.splice(4, 0, { ...data.columns[0], search: { ...data.columns[0].search, search: "" } });
 +        data.order = (data.order || []).map(([i, dir]) => [i >= 4 ? i + 1 : i, dir]);
 +      }
++      if (!data.leaseGroupsFirst && data.columns?.length === 8) {
++        data.columns.unshift(data.columns.splice(4, 1)[0]);
++        data.order = (data.order || []).map(([i, dir]) => [i === 4 ? 0 : i < 4 ? i + 1 : i, dir]);
++      }
        return data;
      },
    });
 -  dhcpLeaesTable.on("init select deselect", () => {
 -    utils.changeTableButtonStates(dhcpLeaesTable);
--  });
++  $("#DHCPLeasesTable .lease-client-toggle").on("click", function (event) {
++    event.stopPropagation();
++    const show = $("#DHCPLeasesTable").hasClass("client-ids-collapsed");
++    $("#DHCPLeasesTable").toggleClass("client-ids-collapsed", !show);
++    const label = show ? "Hide Client ID" : "Show Client ID";
++    $(this).attr({ "aria-expanded": String(show), "aria-label": label, title: label });
++    dhcpLeasesTable.columns.adjust();
+   });
++  window.setInterval(refreshExpirationBars, 30000);
 +  setupLeaseGroups();
 +  loadLeaseActivity();
 +  $("#DHCPLeasesTable").on("click", "button[data-del-ip]", deleteLease);
@@ -605,13 +698,20 @@ index 27adb7b..f7eabe5 100644
 +    staticLeaseKeys?.has("id:" + clientID);
 +}
 +
++function cleanLeaseHostname(value, finished) {
++  const text = value.replace(/\s/gu, "_").replace(/[^a-zA-Z0-9._-]/gu, "");
++  if (!finished) return text;
++  // Allow a trailing separator while typing, then enforce Pi-hole's label boundaries.
++  return text.split(".").map(label => label.replace(/^[-_]+|[-_]+$/gu, "")).filter(Boolean).join(".");
++}
++
 +function staticLeaseDraft(lease) {
 +  if (staticHostsReadOnly || staticLeaseKeys === null) return null;
 +
 +  const ipaddr = reservationIP(lease.ip || "");
 +  const hwaddr = reservationMAC(lease.hwaddr || "");
 +  const clientID = reservationClientID(lease.clientid || "");
-+  const hostname = utils.validateHostnameDHCP(lease.name || "") ? lease.name : "";
++  const hostname = cleanLeaseHostname(lease.name || "", true);
 +  if (!ipaddr || (!hwaddr && !clientID && !hostname)) return null;
 +  if (pendingStaticReservation?.ipaddr === ipaddr || hasStaticLease(ipaddr, hwaddr, clientID)) {
 +    return null;
@@ -633,7 +733,16 @@ index 27adb7b..f7eabe5 100644
  }
  
  function processDHCPConfig() {
-@@ -237,7 +487,7 @@ function processDHCPConfig() {
+@@ -227,6 +579,8 @@ function processDHCPConfig() {
+     url: document.body.dataset.apiurl + "/config/dhcp?detailed=true",
+   })
+     .done(data => {
++      configureLeaseTimes(data.config.dhcp);
++      refreshExpirationBars();
+       fillDHCPhosts(data.config.dhcp.hosts);
+       setConfigValues("dhcp", "dhcp", data.config.dhcp);
+     })
+@@ -237,7 +591,7 @@ function processDHCPConfig() {
  
  function parseStaticDHCPLine(line) {
    // Accepts: [hwaddr][,ipaddr][,hostname] (all optional, comma-separated, no advanced tokens)
@@ -642,7 +751,7 @@ index 27adb7b..f7eabe5 100644
  
    // If the line is empty, return an object with empty fields
    if (!line.trim())
-@@ -264,7 +514,7 @@ function parseStaticDHCPLine(line) {
+@@ -264,7 +618,7 @@ function parseStaticDHCPLine(line) {
      // Advanced if the part is "infinite", "ignore" or a lease time value
      if (/^(infinite|ignore|\d+(w|W|d|D|h|H|m|M|s|S))$/u.test(part)) return "advanced";
  
@@ -651,7 +760,7 @@ index 27adb7b..f7eabe5 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +550,50 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +654,50 @@ function parseStaticDHCPLine(line) {
    };
  }
  
@@ -690,7 +799,8 @@ index 27adb7b..f7eabe5 100644
 +  const row = $(this).closest("tr");
    const hwaddr = row.find(".static-hwaddr").text().trim();
    const ipaddr = row.find(".static-ipaddr").text().trim();
-   const hostname = row.find(".static-hostname").text().trim();
+-  const hostname = row.find(".static-hostname").text().trim();
++  const hostname = cleanLeaseHostname(row.find(".static-hostname").text(), true);
 +  if (row.hasClass("static-reservation-draft")) {
 +    confirmStaticReservationDraft({ hwaddr, ipaddr, hostname });
 +    return;
@@ -704,7 +814,7 @@ index 27adb7b..f7eabe5 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,10 +606,13 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,10 +710,13 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -721,7 +831,7 @@ index 27adb7b..f7eabe5 100644
  
    // Update "data-original-line" to containing the new saved values
    row.attr("data-original-line", lines[rowIdx]);
-@@ -337,19 +623,26 @@ $(document).on("click", ".save-static-row", function () {
+@@ -337,19 +727,26 @@ $(document).on("click", ".save-static-row", function () {
    // then remove highlight colors from all cells on this row
    $("td", row).blur();
  
@@ -755,7 +865,7 @@ index 27adb7b..f7eabe5 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -369,16 +662,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -369,16 +766,15 @@ $(document).on("click", ".cancel-static-row", function () {
    // Trigger "blur" event to remove highlight colors and titles from all cells on this row
    row.find(".static-hwaddr, .static-ipaddr, .static-hostname").blur();
  
@@ -776,7 +886,7 @@ index 27adb7b..f7eabe5 100644
    }
  });
  
-@@ -386,6 +678,14 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +782,14 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -791,7 +901,7 @@ index 27adb7b..f7eabe5 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,44 +693,142 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,44 +797,142 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -956,7 +1066,7 @@ index 27adb7b..f7eabe5 100644
      const idx = row.attr("data-row");
      const saveBtn = $(
        '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
-@@ -445,80 +843,90 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +947,90 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
@@ -1087,7 +1197,7 @@ index 27adb7b..f7eabe5 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +939,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1043,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1104,7 +1214,7 @@ index 27adb7b..f7eabe5 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1006,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1110,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1113,11 +1223,86 @@ index 27adb7b..f7eabe5 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
+@@ -611,16 +1119,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+   }
+ });
+ 
+-$(document).on("input blur paste", "#StaticDHCPTable td.static-hostname", function () {
+-  const val = $(this).text().trim();
+-  if (val && !utils.validateHostnameDHCP(val)) {
+-    $(this).addClass("table-danger");
+-    $(this).attr(
+-      "title",
+-      "Invalid hostname: letters, digits, hyphens, dots, and underscores allowed"
+-    );
+-  } else {
+-    $(this).removeClass("table-danger");
+-    $(this).attr("title", "");
++const editableHostname = '#StaticDHCPTable td.static-hostname[contenteditable="true"]';
++
++$(document).on("paste", editableHostname, function (event) {
++  event.preventDefault();
++  const text = event.originalEvent.clipboardData.getData("text/plain");
++  const selection = window.getSelection();
++  if (!selection.rangeCount || !this.contains(selection.getRangeAt(0).commonAncestorContainer)) return;
++  const range = selection.getRangeAt(0);
++  range.deleteContents();
++  const node = document.createTextNode(cleanLeaseHostname(text, false));
++  range.insertNode(node);
++  range.setStartAfter(node);
++  range.collapse(true);
++  selection.removeAllRanges();
++  selection.addRange(range);
++  $(this).trigger("input");
++});
++
++$(document).on("input compositionend blur", editableHostname, function (event) {
++  if (event.originalEvent?.isComposing) return;
++  const value = this.textContent;
++  const finished = event.type === "focusout" || event.type === "blur";
++  const cleaned = cleanLeaseHostname(value, finished);
++  if (cleaned !== value) {
++    const selection = window.getSelection();
++    let offset = null;
++    if (!finished && selection.rangeCount && this.contains(selection.focusNode)) {
++      const prefix = document.createRange();
++      prefix.selectNodeContents(this);
++      prefix.setEnd(selection.focusNode, selection.focusOffset);
++      offset = cleanLeaseHostname(prefix.toString(), false).length;
++    }
++    this.textContent = cleaned;
++    if (offset !== null) selection.collapse(this.firstChild || this, offset);
+   }
++  $(this).removeClass("table-danger").removeAttr("title");
+ });
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..e537633 100644
+index 1cbc347..3b64f97 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -13,13 +13,44 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -9,17 +9,90 @@
+ 
+ mg.include('scripts/lua/header_authenticated.lp','r')
+ 
++-- Lucide eye and eye-closed icons.
++--[[
++ISC License
++
++Copyright (c) 2026 Lucide Icons and Contributors
++
++Permission to use, copy, modify, and/or distribute this software for any
++purpose with or without fee is hereby granted, provided that the above
++copyright notice and this permission notice appear in all copies.
++
++THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++--]]
++
+ -- Page title and level selector
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
  ?>
@@ -1151,6 +1336,29 @@ index 1cbc347..e537633 100644
 +        transform: translateY(-50%);
 +        pointer-events: none;
 +    }
++    .lease-group-editor { min-width: 10em; max-width: 18em; white-space: normal; }
++    .lease-group-name { margin-bottom: .4em; }
++    #DHCPLeasesTable .lease-client-toggle svg { vertical-align: middle; }
++    #DHCPLeasesTable.client-ids-collapsed .lease-client-id,
++    #DHCPLeasesTable.client-ids-collapsed .lease-client-toggle span,
++    #DHCPLeasesTable.client-ids-collapsed .lucide-eye,
++    #DHCPLeasesTable:not(.client-ids-collapsed) .lucide-eye-closed { display: none; }
++    #DHCPLeasesTable .lease-client-heading { width: 1%; white-space: nowrap; }
++    .lease-expiration {
++        display: inline-flex; align-items: stretch; width: 5em; height: .8em;
++        padding: 1px; border: 1px solid currentColor; border-radius: 2px;
++        background: transparent; color: inherit; vertical-align: middle;
++    }
++    .lease-expiration > span { background: currentColor; }
++    .lease-expiration.unknown-duration { border-style: dashed; }
++    #DHCPLeasesTable.client-ids-collapsed thead th { width: auto !important; }
++    #DHCPLeasesTable.client-ids-collapsed th.lease-client-heading,
++    #DHCPLeasesTable.client-ids-collapsed td.lease-client-cell {
++        width: 1px !important; padding-inline: 0; white-space: nowrap;
++    }
++    #DHCPLeasesTable.client-ids-collapsed .lease-client-toggle {
++        width: 24px; height: 24px; padding: 0; border: 0; background: transparent;
++    }
 +</style>
  <div class="row">
      <!-- DHCP Settings Box -->
@@ -1165,7 +1373,7 @@ index 1cbc347..e537633 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +115,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +157,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1183,7 +1391,7 @@ index 1cbc347..e537633 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,29 +162,30 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,29 +204,61 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1205,21 +1413,54 @@ index 1cbc347..e537633 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-                         <table id="DHCPLeasesTable" class="table table-striped table-bordered nowrap" width="100%">
+-                        <table id="DHCPLeasesTable" class="table table-striped table-bordered nowrap" width="100%">
++                        <table id="DHCPLeasesTable" class="client-ids-collapsed table table-striped table-bordered nowrap" width="100%">
                              <thead>
                                  <tr>
 -                                    <td></td>
++                                    <th>Groups</th>
                                      <th>IP address</th>
                                      <th>Hostname</th>
                                      <th>MAC address</th>
                                      <th>Expiration</th>
-+                                    <th>Groups</th>
-                                     <th>Client ID</th>
+-                                    <th>Client ID</th>
++                                    <th class="lease-client-heading" data-dt-order="disable">
++                                        <button type="button" class="btn btn-default btn-xs lease-client-toggle" aria-expanded="false" aria-label="Show Client ID" title="Show Client ID"><svg aria-hidden="true" class="lucide-eye-closed"
++  xmlns="http://www.w3.org/2000/svg"
++  width="16"
++  height="16"
++  viewBox="0 0 24 24"
++  fill="none"
++  stroke="currentColor"
++  stroke-width="2"
++  stroke-linecap="round"
++  stroke-linejoin="round"
++>
++  <path d="m15 18-.722-3.25" />
++  <path d="M2 8a10.645 10.645 0 0 0 20 0" />
++  <path d="m20 15-1.726-2.05" />
++  <path d="m4 15 1.726-2.05" />
++  <path d="m9 18 .722-3.25" />
++</svg><svg aria-hidden="true" class="lucide-eye"
++  xmlns="http://www.w3.org/2000/svg"
++  width="16"
++  height="16"
++  viewBox="0 0 24 24"
++  fill="none"
++  stroke="currentColor"
++  stroke-width="2"
++  stroke-linecap="round"
++  stroke-linejoin="round"
++>
++  <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
++  <circle cx="12" cy="12" r="3" />
++</svg><span> Client ID</span></button>
++                                    </th>
 +                                    <th>DNS activity (24h)</th>
                                      <td></td>
                                  </tr>
                              </thead>
-@@ -163,13 +195,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,13 +268,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1237,7 +1478,7 @@ index 1cbc347..e537633 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -177,9 +209,9 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -177,9 +282,9 @@ mg.include('scripts/lua/settings_header.lp','r')
                              <table id="StaticDHCPTable" class="table table-striped table-bordered nowrap" width="100%">
                                  <thead>
                                      <tr>
@@ -1248,7 +1489,7 @@ index 1cbc347..e537633 100644
                                          <th>Actions</th>
                                      </tr>
                                  </thead>
-@@ -190,6 +222,15 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -190,6 +295,15 @@ mg.include('scripts/lua/settings_header.lp','r')
                          </div>
                      </div>
                  </div>
@@ -1264,7 +1505,7 @@ index 1cbc347..e537633 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +251,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +324,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -1273,7 +1514,7 @@ index 1cbc347..e537633 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,12 +292,24 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,12 +365,21 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1284,18 +1525,15 @@ index 1cbc347..e537633 100644
          <button type="button" class="btn btn-primary save-button"><i class="fa-solid fa-fw fa-floppy-disk"></i>&nbsp;Save & Apply</button>
      </div>
  </div>
-+<dialog id="lease-group-editor" class="modal-content" aria-labelledby="lease-group-title" style="width:min(28em,95vw);color:inherit">
-+    <div class="modal-header"><h4 id="lease-group-title">Groups for <span id="lease-group-address"></span></h4></div>
-+    <div class="modal-body">
-+        <p>Save groups for this IP address. Future devices that use this address will use these groups.</p>
-+        <div id="lease-group-options"></div>
-+        <p id="lease-group-status" role="status"></p>
++<template id="lease-group-template">
++    <div class="lease-group-editor" role="group">
++        <div class="lease-group-options"></div>
++        <input type="text" class="form-control input-sm lease-group-name" aria-label="Group name to add" placeholder="Group name to add">
++        <button type="button" class="btn btn-primary btn-xs save-lease-groups">Save groups</button>
++        <button type="button" class="btn btn-default btn-xs cancel-lease-groups">Cancel</button>
++        <div role="status"></div>
 +    </div>
-+    <div class="modal-footer">
-+        <button id="cancel-lease-groups" type="button" class="btn btn-default">Cancel</button>
-+        <button id="save-lease-groups" type="button" class="btn btn-primary">Save groups</button>
-+    </div>
-+</dialog>
++</template>
  <script src="<?=pihole.fileversion('vendor/bootstrap-toggle/bootstrap-toggle.min.js')?>"></script>
  <script src="<?=pihole.fileversion('scripts/js/settings-dhcp.js')?>"></script>
  <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>

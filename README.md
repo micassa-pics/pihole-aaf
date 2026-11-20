@@ -66,11 +66,15 @@ Select the eye beside an active lease or static reservation to see queries from 
 3. Edit the draft. Select the checkmark to confirm it or the curved arrow to cancel it.
 4. Select **Save & Apply** to save the confirmed reservation.
 
-Tap an IP or MAC address in either DHCP table to copy it. **Copied** appears briefly. To change a saved address, select the pencil in the reservation row.
+Tap an IP or MAC address in either DHCP table to copy it. **Copied** appears briefly. When you edit a reservation hostname, spaces become underscores. The editor removes unsupported characters. To change a saved address, select the pencil in the reservation row.
 
 Long client IDs appear in a tinted, read-only field. Tap once to copy the full ID. **Copied** appears briefly when the copy succeeds. If the browser blocks copying, the ID stays selected for manual copying.
 
-Under **Currently active DHCP leases**, select a name in **Groups** to edit that IP address. Select the groups and choose **Save groups**. The change takes effect separately from **Save & Apply**. If another device later gets this IP, it uses the same groups. If the lease could inherit an interface rule, the table shows **Check interface rule**.
+Under **Currently active DHCP leases**, tap **Groups** in the far-left cell of a lease row to edit its membership. Select existing groups or enter a group name. Choose **Save groups** to assign them to that IP. Pi-hole creates the named group if it does not exist. The change takes effect separately from **Save & Apply**. If another device later gets this IP, it uses the same groups. If the lease could inherit an interface rule, the table shows **Check interface rule**.
+
+In **Expiration**, the outline represents the configured lease time. The fill shows the time left. Hover or focus the bar for Pi-hole's usual wording, such as "in 3 hours" or "Never".
+
+The **Client ID** column starts collapsed. Tap the closed eye in its heading to show the IDs. Tap the open eye to hide them again.
 
 The **DNS activity (24h)** column immediately after **Client ID** shows one hourly bar per active lease for the past day. Hover over a slot for its UTC interval and query count. A dash means Pi-hole has no per-IP history for that lease.
 
