@@ -8,9 +8,9 @@ Select **Group**. Each row combines requests with the same domain, query type, a
 
 The **Time** chart divides the full query range into 24 equal intervals, from oldest to newest. For a six-hour range, each bar covers 15 minutes. For a two-day range, each bar covers two hours. An empty slot means zero queries. Hover over a slot to see its UTC interval and count.
 
-![Grouped Recent Queries with the All filter active. The Count column shows the largest groups first.](assets/grouped-query-log.jpg)
+![Grouped Recent Queries sorted by Count. The Time chart for calendar.example shows steady activity. The chart for maps.example shows two short bursts.](assets/grouped-query-log.jpg)
 
-In this example, one client sent 240 A queries and 185 AAAA queries for `calendar.example`. Each query type has its own row. The example uses fictional data.
+In this fictional example, `maple-tablet.test` sent 240 A queries for `calendar.example` across the selected range. The 24 interval counts add up to 240. The next row shows the same client's 185 AAAA queries. Each chart scales to its own busiest interval. Use **Count** to compare totals across rows.
 
 ## Filter and inspect results
 
