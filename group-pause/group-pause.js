@@ -8,12 +8,27 @@
   const box = document.createElement("li");
   box.style.padding = "5px 10px 5px 18px";
   box.innerHTML = '<fieldset><legend style="font-size:inherit;color:inherit;margin-bottom:4px">Apply to</legend>' +
-    '<label><input class="no-icheck" type="checkbox" checked> All devices</label><div></div><label style="display:block">One device<select class="form-control input-sm" style="width:100%;min-width:0"><option value="">Select an IP address</option></select></label><button type="button" hidden>Resume this IP</button></fieldset>' +
+    '<label><input class="no-icheck" type="checkbox" checked> All devices</label><div></div><label style="display:block" for="pause-one-device">One device</label><select id="pause-one-device" class="form-control input-sm" style="width:100%;min-width:0"><option value="">Select an IP address</option></select><button type="button" hidden>Resume this IP</button></fieldset>' +
     '<small role="status" aria-live="polite"></small>';
   menu.querySelector("ul").prepend(box);
   const all = box.querySelector("input");
   const list = box.querySelector("fieldset div");
   const device = box.querySelector("select");
+  function deviceLabel(item) {
+    if (!item.id) return item.text;
+    const label = $("<span>").css({ display: "block", lineHeight: "1.4" });
+    const lines = [item.id + ":", item.element.dataset.hostname];
+    if (item.element.dataset.paused === "true") lines[1] = [lines[1], "(paused)"].filter(Boolean).join(" ");
+    for (const line of lines.filter(Boolean)) {
+      $("<span>").text(line).attr("title", line).css({
+        display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+      }).appendTo(label);
+    }
+    return label;
+  }
+  $(device).select2({ width: "100%", minimumResultsForSearch: Infinity,
+    templateResult: deviceLabel, templateSelection: deviceLabel });
+  $(device).next(".select2-container").find(".select2-selection").css({ height: "auto", minHeight: "30px" });
   const resume = box.querySelector("button");
   let paused = new Set();
   const status = box.querySelector("small");
@@ -62,10 +77,13 @@
     const previous = device.value;
     device.replaceChildren(new Option("Select an IP address", ""));
     for (const ip of [...names.keys()].sort((a,b) => sortKey(a).localeCompare(sortKey(b)))) {
-      const label = [ip, names.get(ip)].filter(Boolean).join(" — ") + (paused.has(ip) ? " (paused)" : "");
-      device.add(new Option(label, ip));
+      const hostname = names.get(ip);
+      const option = new Option([ip + ":", hostname, paused.has(ip) ? "(paused)" : ""].filter(Boolean).join(" "), ip);
+      option.dataset.hostname = hostname;
+      option.dataset.paused = String(paused.has(ip));
+      device.add(option);
     }
-    device.value = names.has(previous) ? previous : "";
+    $(device).val(names.has(previous) ? previous : "").trigger("change.select2");
     resume.hidden = !paused.has(device.value);
     if (results.every(r => r.status === "rejected")) status.textContent = "Could not load devices. Reopen this menu to retry.";
   }
@@ -73,7 +91,7 @@
     selected.clear();
     list.querySelectorAll("input").forEach(input => { input.checked = false; });
   }
-  device.addEventListener("change", () => {
+  $(device).on("change", () => {
     if (device.value) { all.checked = false; clearGroups(); }
     resume.hidden = !paused.has(device.value);
   });
@@ -98,7 +116,7 @@
         list.append(label);
         input.addEventListener("change", () => {
           if (input.checked) {
-            device.value = "";
+            $(device).val("").trigger("change.select2");
             resume.hidden = true;
             all.checked = false;
             selected.set(group.id, group.name);
@@ -115,7 +133,7 @@
   all.addEventListener("change", () => {
     if (all.checked) {
       clearGroups();
-      device.value = "";
+      $(device).val("").trigger("change.select2");
       resume.hidden = true;
     }
   });
@@ -130,6 +148,7 @@
     }
     busy = true;
     box.querySelector("fieldset").disabled = true;
+    device.disabled = true;
     const targets = Array.from(selected, ([id, name]) => ({ id, name }));
     const token = Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, "0")).join("");
     const request = prefix + token;
@@ -159,6 +178,7 @@
     } finally {
       busy = false;
       box.querySelector("fieldset").disabled = false;
+      device.disabled = false;
       await refresh();
     }
   }
