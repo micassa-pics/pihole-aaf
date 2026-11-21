@@ -12,7 +12,7 @@ Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface.
 
 ## Optional group pause
 
-- Open **Disable Blocking** in the left sidebar. Check the groups, then choose a time below.
+- Open **Disable Blocking** in the left sidebar. Check groups or select one device by IP, then choose a time below.
 - **All devices** uses Pi-hole’s built-in timer. Selected groups use the same time controls and a small host service. [Setup and undo](group-pause/README.md)
 
 ## awesome-a-fyer the dashboard

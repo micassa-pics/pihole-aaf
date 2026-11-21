@@ -41,6 +41,39 @@ class GroupPauseTest(unittest.TestCase):
             check(1012, [1, 0, 1, 0])
             request([(2, "Music")], 10, 1012)
             check(1030, [1, 0, 1, 0])
+            db.execute("CREATE TABLE client(id INTEGER PRIMARY KEY AUTOINCREMENT, ip TEXT UNIQUE, comment TEXT)")
+            db.execute("CREATE TABLE client_by_group(client_id INTEGER REFERENCES client ON DELETE CASCADE, group_id INTEGER REFERENCES \"group\" ON DELETE CASCADE, PRIMARY KEY(client_id, group_id))")
+            db.executemany("INSERT INTO client VALUES(?,?,?)", [(1, "192.0.2.1/32", "keep"), (2, "192.0.2.2", None)])
+            db.executemany("INSERT INTO client_by_group VALUES(?,?)", [(1, 0), (1, 2), (2, 2)])
+            db.commit()
+
+            def device(ip, seconds, now, resume=False):
+                payload = json.dumps({"device": ip, "seconds": seconds, "resume": resume})
+                db.execute('INSERT INTO "group"(name,enabled,date_added,description) VALUES(?,0,?,?)',
+                           (worker.PREFIX + "b" * 32, now, payload))
+                db.commit()
+                advance(now)
+
+            def advance(now):
+                with patch.object(worker.time, "time", return_value=now), patch.object(worker.subprocess, "run"):
+                    worker.tick(gravity, state, ["reload"])
+
+            def membership(cid):
+                return set(db.execute("SELECT group_id FROM client_by_group WHERE client_id=?", (cid,)))
+
+            device("192.0.2.1", 10, 1100)
+            self.assertEqual(membership(2), {(2,)})
+            self.assertFalse(membership(1) & {(0,), (2,)})
+            self.assertEqual(len(membership(1)), 1)
+            advance(1110)
+            self.assertEqual(membership(1), {(0,), (2,)})
+            self.assertEqual(db.execute("SELECT ip,comment FROM client WHERE id=1").fetchone(), ("192.0.2.1/32", "keep"))
+
+            device("2001:db8::5", 0, 1120)
+            advance(9000)
+            self.assertTrue(db.execute("SELECT 1 FROM client WHERE ip='2001:db8::5'").fetchone())
+            device("2001:db8::5", 0, 9000, resume=True)
+            self.assertFalse(db.execute("SELECT 1 FROM client WHERE ip='2001:db8::5'").fetchone())
             db.close()
 
 

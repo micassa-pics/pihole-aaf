@@ -1,8 +1,10 @@
 # Pause blocking for selected groups
 
-Open **Disable Blocking** in the left sidebar. Check one or more groups under **Apply to**. Select a time below the list. **Custom time** uses the existing seconds and minutes dialog. Select **All devices** for Pi-hole’s normal network-wide pause.
+Open **Disable Blocking** in the left sidebar. Check one or more groups under **Apply to**. For one address, select **One device** instead. The dropdown lists known IPv4 and IPv6 addresses in numeric order and includes hostnames where available. Select a time below the list. **Custom time** uses the existing seconds and minutes dialog. Select **All devices** for Pi-hole’s normal network-wide pause.
 
 The host service restores the selected groups after the timer expires. You can close the browser. If the host restarts, the service restores overdue groups when it starts again. **Indefinitely** keeps a group disabled until you enable it on the Groups page. Rules from other enabled groups still apply to their members.
+
+A device pause applies to the selected IP. Other addresses on the same device keep their rules. The worker temporarily assigns that exact IP to an empty group. At expiry it restores the previous memberships or removes the temporary client rule. Select a paused IP and tap **Resume this IP** to end its pause early.
 
 ## Install
 
@@ -31,10 +33,10 @@ git apply /path/to/sidebar-loader.patch
 
 The picker uses Pi-hole’s existing disable function, presets, and custom duration. For selected groups, the browser submits a short-lived, disabled request group through the authenticated Groups API. The worker consumes that request, checks each selected group, and pauses the selection in one database transaction. It records deadlines in its own SQLite file and calls `pihole reloadlists`. It retries failed reloads. The worker opens no network port and needs no stored Pi-hole password.
 
-Reserve the group-name prefix `awesome-a-fyer-pause-` for the worker. A request can appear briefly on the Groups page. A request older than 15 seconds expires without starting a pause. If the browser cannot confirm a pause, check the Groups page and the service log.
+Reserve the group-name prefixes `awesome-a-fyer-pause-` and `awesome-a-fyer-device-` for the worker. A request can appear briefly on the Groups page. A request older than 15 seconds expires without starting a pause. If the browser cannot confirm a pause, check the Groups page and the service log.
 
 ## Undo
 
 1. Reverse the loader patch in the webroot. Check it with `git apply --reverse --check` first. Remove the added `scripts/js/group-pause.js` file.
-2. Let active timers finish, or manually re-enable the paused groups. Check that both the `timers` and `reload_pending` tables in the worker’s database are empty before removing the service.
+2. Let active timers finish, or manually re-enable the paused groups. Check that the `timers`, `device_timers`, and `reload_pending` tables in the worker’s database are empty before removing the service.
 3. Disable and stop `group-pause.service`. Remove its unit and worker files, then run `systemctl daemon-reload`. Keep the timer database with your backup.
