@@ -12,6 +12,8 @@ Select the eye beside an active lease or static reservation to see queries from 
 2. Select **+** to the right of the eye. An outlined row marked **New** opens at the top of **Static DHCP configuration**.
 3. Edit the draft. Select the checkmark to save it or the curved arrow to cancel it.
 
+Both tables show a matching DNS suffix when Pi-hole reports one for the device. For example, a DHCP name of **printer** can appear as **printer.lan**. The editor opens the stored DHCP name.
+
 Tap a MAC address in either DHCP table to copy it. **Copied** appears briefly. Tap a hostname in either table to edit it inline. As you type, spaces become underscores. The editor removes unsupported characters. To change a saved address, select the IP address in the reservation row.
 
 Long client IDs appear in a tinted, read-only field. Tap once to copy the full ID. **Copied** appears briefly when the copy succeeds. If the browser blocks copying, the ID stays selected for manual copying.
