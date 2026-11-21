@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..154ec5b 100644
+index af99c0a..f40892f 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..154ec5b 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.15";
++  const version = "1.1.16";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -1839,10 +1839,10 @@ index 27adb7b..171623d 100644
 +  }, close);
  });
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..1ffd4d5 100644
+index 1cbc347..240ecac 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -12,14 +12,137 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -12,14 +12,140 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  -- Page title and level selector
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
@@ -1899,11 +1899,11 @@ index 1cbc347..1ffd4d5 100644
 +    .lease-expiration > span { background: currentColor; }
 +    .lease-expiration.unknown-duration { border-style: dashed; }
 +    :is(#DHCPLeasesTable,#StaticDHCPTable) {
-+        --vendor-width: 165px;
++        --vendor-width: clamp(124px, 13%, 165px);
 +        --mac-width: 160px;
 +        --cid-width: 192px;
 +        width: 100%; table-layout: fixed;
-+        min-width: calc(780px + var(--vendor-width) + var(--mac-width) + var(--cid-width));
++        min-width: calc(818px + var(--mac-width) + var(--cid-width));
 +    }
 +    .mac-collapsed:is(#DHCPLeasesTable,#StaticDHCPTable) { --mac-width: 38px; }
 +    .client-ids-collapsed:is(#DHCPLeasesTable,#StaticDHCPTable) { --cid-width: 34px; }
@@ -1913,8 +1913,11 @@ index 1cbc347..1ffd4d5 100644
 +    .lease-groups-heading { --column-width: 146px; }
 +    .lease-ip-heading { --column-width: 132px; }
 +    .lease-expiry-heading { --column-width: 100px; }
++    :is(#DHCPLeasesTable,#StaticDHCPTable):not(.vendor-collapsed) .lease-groups-heading { --column-width: clamp(100px, 10%, 146px); }
++    :is(#DHCPLeasesTable,#StaticDHCPTable):not(.vendor-collapsed) .lease-ip-heading { --column-width: clamp(118px, 10%, 132px); }
++    :is(#DHCPLeasesTable,#StaticDHCPTable):not(.vendor-collapsed) .lease-expiry-heading { --column-width: clamp(80px, 7%, 100px); }
 +    .lease-vendor-heading { --column-width: var(--vendor-width); }
-+    .vendor-collapsed:is(#DHCPLeasesTable,#StaticDHCPTable) { --vendor-width: 54px; }
++    .vendor-collapsed:is(#DHCPLeasesTable,#StaticDHCPTable) { --vendor-width: 38px; }
 +    .vendor-collapsed .lease-vendor-value { display: none; }
 +    .lease-vendor-cell { overflow: hidden; text-overflow: ellipsis; }
 +    .lease-mac-heading { --column-width: var(--mac-width); }
@@ -1983,7 +1986,7 @@ index 1cbc347..1ffd4d5 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +207,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +210,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2001,7 +2004,7 @@ index 1cbc347..1ffd4d5 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,30 +254,32 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,30 +257,32 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2036,7 +2039,7 @@ index 1cbc347..1ffd4d5 100644
 -                                    <th>Expiration</th>
 -                                    <th>Client ID</th>
 -                                    <td></td>
-+                                    <th class="lease-vendor-heading" data-dt-order="disable"><?=leaseToggle('Vendor', 'Vendor', 'vendor-collapsed')?></th>
++                                    <th class="lease-vendor-heading" data-dt-order="disable"><?=leaseToggle('Vendor', 'VND', 'vendor-collapsed')?></th>
 +                                    <th class="lease-expiry-heading">Expiration</th>
 +                                    <th class="lease-mac-heading" data-dt-order="disable"><?=leaseToggle('MAC address', 'MAC', 'mac-collapsed')?></th>
 +                                    <th class="lease-client-heading" data-dt-order="disable"><?=leaseToggle('Client ID', 'CID', 'client-ids-collapsed')?></th>
@@ -2045,7 +2048,7 @@ index 1cbc347..1ffd4d5 100644
                                  </tr>
                              </thead>
                              <tbody>
-@@ -163,33 +288,46 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,33 +291,46 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2085,7 +2088,7 @@ index 1cbc347..1ffd4d5 100644
 +                                    <th class="lease-groups-heading">Groups</th>
 +                                <th class="lease-ip-heading">IP address</th>
 +                                <th>Hostname</th>
-+                                <th class="lease-vendor-heading" data-dt-order="disable"><?=leaseToggle('Vendor', 'Vendor', 'vendor-collapsed')?></th>
++                                <th class="lease-vendor-heading" data-dt-order="disable"><?=leaseToggle('Vendor', 'VND', 'vendor-collapsed')?></th>
 +                                <th class="lease-expiry-heading">Expiration</th>
 +                                <th class="lease-mac-heading" data-dt-order="disable"><?=leaseToggle('MAC address', 'MAC', 'mac-collapsed')?></th>
 +                                <th class="lease-client-heading" data-dt-order="disable"><?=leaseToggle('Client ID', 'CID', 'client-ids-collapsed')?></th>
@@ -2111,7 +2114,7 @@ index 1cbc347..1ffd4d5 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +348,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +351,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -2120,7 +2123,7 @@ index 1cbc347..1ffd4d5 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,13 +389,24 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,13 +392,24 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
