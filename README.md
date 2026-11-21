@@ -35,7 +35,7 @@ Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface.
 
 - Select the eye beside a device to open its Query Log.
 - Active leases and static reservations are now grouped in separate tables. Collapse any section.
-- Select **+** beside a lease to move it to the Static Table - edit it as the **New** row at the top. Select the checkmark to save.
+- Select **+** beside a lease to move it to the Static Table - edit it as the **New** row at the top. Press **Enter** or tap outside the row to save.
 - Edit hostnames and groups in place. Use **Save & Apply** only for deletions.
 - Tap **VND**, **MAC**, or **CID** to show or hide that column in both tables.
 - Check lease time remaining and DNS activity for the past 24 hours.

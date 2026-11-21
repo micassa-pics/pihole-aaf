@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..ad08e8b 100644
+index af99c0a..dbbf506 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..ad08e8b 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.19";
++  const version = "1.1.20";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -93,7 +93,7 @@ index af99c0a..ad08e8b 100644
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..51953f6 100644
+index 27adb7b..5b1c313 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,141 @@
@@ -173,7 +173,7 @@ index 27adb7b..51953f6 100644
 +}
 +
 +function refreshStaticDetails() {
-+  if (staticDHCPTable && !$("#StaticDHCPTable .save-static-row, #StaticDHCPTable input:not([readonly]):focus, #StaticDHCPTable .lease-group-editor").length)
++  if (staticDHCPTable && !$("#StaticDHCPTable .editing-static-row, #StaticDHCPTable input:not([readonly]):focus, #StaticDHCPTable .lease-group-editor").length)
 +    renderStaticDHCPTable();
 +}
 +
@@ -720,11 +720,8 @@ index 27adb7b..51953f6 100644
 +function enableAddressCopy(cell) {
 +  if (!cell.text().trim() || cell.text().trim() === "*") return;
 +  cell.attr({ "data-copy-address": "", tabindex: 0, role: "button", title: "Copy address" });
- }
- 
--function delLease(ip) {
--  utils.disableAll();
--  toasts[ip] = utils.showAlert("info", "", "Deleting lease...", ip, null);
++}
++
 +async function copyLeaseValue() {
 +  const cell = $(this).closest("td");
 +  cell.find(".lease-copy-feedback").remove();
@@ -752,6 +749,20 @@ index 27adb7b..51953f6 100644
 +  const feedback = $('<span class="lease-copy-feedback label label-info" role="status"></span>').appendTo(cell);
 +  feedback.text("Copied");
 +  setTimeout(() => feedback.remove(), 1200);
+ }
+ 
+-function delLease(ip) {
+-  utils.disableAll();
+-  toasts[ip] = utils.showAlert("info", "", "Deleting lease...", ip, null);
++function staticAddressCopyMode(row) {
++  if (!staticHostsReadOnly) {
++    row.find(".static-hostname").attr("contenteditable", "true");
++    row.find(".static-ipaddr").attr({ role: "button", tabindex: 0, title: "Edit reservation address" });
++  }
++  row.find(".static-ipaddr, .static-hwaddr").removeAttr("contenteditable");
++  const mac = row.find(".static-hwaddr");
++  mac.html($("<span>", { class: "lease-mac-value", text: mac.text() }));
++  if (!$("#StaticDHCPTable").hasClass("mac-collapsed")) enableAddressCopy(mac);
 +}
  
 -  $.ajax({
@@ -778,15 +789,12 @@ index 27adb7b..51953f6 100644
 -          toasts[ip]
 -        );
 -      }
-+function staticAddressCopyMode(row) {
-+  if (!staticHostsReadOnly) {
-+    row.find(".static-hostname").attr("contenteditable", "true");
-+    row.find(".static-ipaddr").attr({ role: "button", tabindex: 0, title: "Edit reservation address" });
-+  }
-+  row.find(".static-ipaddr, .static-hwaddr").removeAttr("contenteditable");
-+  const mac = row.find(".static-hwaddr");
-+  mac.html($("<span>", { class: "lease-mac-value", text: mac.text() }));
-+  if (!$("#StaticDHCPTable").hasClass("mac-collapsed")) enableAddressCopy(mac);
++function deleteLease() {
++  const ip = $(this).attr("data-del-ip");
++  if (!globalThis.confirm("Queue deletion of the active DHCP lease for " + ip + "?")) return;
++  pendingLeaseDeletes.set(ip, leasesByIP.get(ip));
++  dhcpLeasesTable.clear().rows.add(dynamicLeases()).draw(false);
++  updatePendingDHCP();
 +}
  
 -      // Clear selection after deletion
@@ -803,14 +811,6 @@ index 27adb7b..51953f6 100644
 -        toasts[ip]
 -      );
 -      console.log(exception); // eslint-disable-line no-console
-+function deleteLease() {
-+  const ip = $(this).attr("data-del-ip");
-+  if (!globalThis.confirm("Queue deletion of the active DHCP lease for " + ip + "?")) return;
-+  pendingLeaseDeletes.set(ip, leasesByIP.get(ip));
-+  dhcpLeasesTable.clear().rows.add(dynamicLeases()).draw(false);
-+  updatePendingDHCP();
-+}
-+
 +async function delLease(ip) {
 +  const toast = utils.showAlert("info", "", "Deleting lease...", ip, null);
 +  let response;
@@ -939,7 +939,7 @@ index 27adb7b..51953f6 100644
 +    renderHostnameCLID(name, type) + "</button>";
 +}
 +
-+function editHostname(cell, value, confirm, cancel, discardOnBlur = true) {
++function editHostname(cell, value, confirm, cancel, saveOnBlur = true) {
 +  const field = $('<input type="text" class="form-control input-sm" aria-label="DHCP hostname">').val(value);
 +  cell.empty().append(field);
 +  field.trigger("focus")[0].select();
@@ -959,8 +959,8 @@ index 27adb7b..51953f6 100644
 +      else cancel();
 +    }
 +  });
-+  if (discardOnBlur) field.on("blur", () => {
-+    if (field[0].isConnected) cancel();
++  if (saveOnBlur) field.on("blur", () => {
++    if (field[0].isConnected) confirm(cleanLeaseHostname(field.val(), true), field[0]);
 +  });
 +}
 +
@@ -1026,8 +1026,8 @@ index 27adb7b..51953f6 100644
 +
 +function dhcpValue(field) {
 +  return field.type === "checkbox" ? field.checked : field.value;
-+}
-+
+ }
+ 
 +const pendingLeaseDeletes = new Map();
 +let pendingHostDeletes = [];
 +let savingDHCP = false;
@@ -1093,8 +1093,8 @@ index 27adb7b..51953f6 100644
 +    }
 +    updatePendingDHCP();
 +  }
- }
- 
++}
++
 +function saveHosts(manual = false) {
 +  const field = document.getElementById("dhcp-hosts");
 +  const stored = hostLines(savedDHCPValues.get(field));
@@ -1219,10 +1219,14 @@ index 27adb7b..51953f6 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +1057,51 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +1057,50 @@ function parseStaticDHCPLine(line) {
    };
  }
  
+-// Save button for each row updates only that line in the textarea
+-$(document).on("click", ".save-static-row", function () {
+-  const rowIdx = Number.parseInt($(this).data("row"), 10);
+-  const row = $(`tr[data-row="${rowIdx}"]`);
 +function setStaticDHCPEditing(editing) {
 +  const table = $(staticDHCPTable.table().container());
 +  table.find(".dhcp-table-controls, thead").prop("inert", editing);
@@ -1251,11 +1255,9 @@ index 27adb7b..51953f6 100644
 +  return staticDHCPTable.row(rowIndex).node();
 +}
 +
- // Save button for each row updates only that line in the textarea
- $(document).on("click", ".save-static-row", function () {
-   const rowIdx = Number.parseInt($(this).data("row"), 10);
--  const row = $(`tr[data-row="${rowIdx}"]`);
-+  const row = $(this).closest("tr");
++function saveStaticRow(row) {
++  if (!row.hasClass("editing-static-row") || !row[0].isConnected) return;
++  const rowIdx = Number(row.attr("data-row"));
    const hwaddr = row.find(".static-hwaddr").text().trim();
    const ipaddr = row.find(".static-ipaddr").text().trim();
 -  const hostname = row.find(".static-hostname").text().trim();
@@ -1274,7 +1276,7 @@ index 27adb7b..51953f6 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,10 +1114,14 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,33 +1113,42 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1286,32 +1288,39 @@ index 27adb7b..51953f6 100644
 +    return;
 +  }
 +  const line = [hwaddr, ip, hostname].filter(Boolean).join(",");
++  const originalLine = lines[rowIdx];
 +  lines[rowIdx] = line;
    $("#dhcp-hosts").val(lines.join("\n"));
 +  updateStaticLeaseKeys(lines);
  
    // Update "data-original-line" to containing the new saved values
    row.attr("data-original-line", lines[rowIdx]);
-@@ -337,19 +1132,28 @@ $(document).on("click", ".save-static-row", function () {
-   // then remove highlight colors from all cells on this row
-   $("td", row).blur();
  
+-  // Hide the tooltips and remove Save and Cancel buttons
+-  $(this).siblings(".cancel-static-row").tooltip("hide").remove();
+-  $(this).tooltip("hide").remove();
+-  // then remove highlight colors from all cells on this row
+-  $("td", row).blur();
+-
 -  // Check if all rows were already saved (no rows are still being edited)
+-  if ($("#StaticDHCPTable .save-static-row").length === 0) {
+-    // Re-enable all table buttons
+-    $("#StaticDHCPTable button").prop("disabled", false);
+-    // and re-enable the textarea
+-    $("#dhcp-hosts").prop("disabled", false);
++  row.removeClass("editing-static-row").find(".cancel-static-row").tooltip("hide").remove();
 +  row.find(".static-ipaddr").text(ip);
 +  row.find(".static-hostname").text(hostname);
 +  row.find(".static-hwaddr").text(hwaddr);
 +  staticAddressCopyMode(row);
 +  staticDHCPTable.row(row).invalidate("dom");
-   if ($("#StaticDHCPTable .save-static-row").length === 0) {
--    // Re-enable all table buttons
--    $("#StaticDHCPTable button").prop("disabled", false);
--    // and re-enable the textarea
--    $("#dhcp-hosts").prop("disabled", false);
++  if ($("#StaticDHCPTable .editing-static-row").length === 0) {
 +    setStaticDHCPEditing(false);
 +    renderStaticDHCPTable();
    }
-+  saveHosts();
- });
+-});
++  if (line !== originalLine) saveHosts();
++}
  
  // Cancel button: restores the original line value when editing a row
  $(document).on("click", ".cancel-static-row", function () {
@@ -1328,28 +1337,30 @@ index 27adb7b..51953f6 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -369,16 +1173,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -369,16 +1168,15 @@ $(document).on("click", ".cancel-static-row", function () {
    // Trigger "blur" event to remove highlight colors and titles from all cells on this row
    row.find(".static-hwaddr, .static-ipaddr, .static-hostname").blur();
  
 +  staticAddressCopyMode(row);
 +
    // Then hide the tooltip and remove Save and Cancel buttons
-   $(this).siblings(".save-static-row").tooltip("hide").remove();
+-  $(this).siblings(".save-static-row").tooltip("hide").remove();
++  row.removeClass("editing-static-row");
    $(this).tooltip("hide").remove();
  
 -  // Check if all rows were already saved or canceled (no rows are still being edited)
-   if ($("#StaticDHCPTable .save-static-row").length === 0) {
+-  if ($("#StaticDHCPTable .save-static-row").length === 0) {
 -    // Re-enable all table buttons
 -    $("#StaticDHCPTable button").prop("disabled", false);
 -    // and re-enable the textarea
 -    $("#dhcp-hosts").prop("disabled", false);
++  if ($("#StaticDHCPTable .editing-static-row").length === 0) {
 +    setStaticDHCPEditing(false);
 +    renderStaticDHCPTable();
    }
  });
  
-@@ -386,6 +1189,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +1184,15 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1365,7 +1376,7 @@ index 27adb7b..51953f6 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,44 +1205,176 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,135 +1200,373 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -1396,7 +1407,7 @@ index 27adb7b..51953f6 100644
 +
 +function startStaticReservationDraft(values) {
 +  const table = $("#StaticDHCPTable");
-+  if (staticHostsReadOnly || staticLeaseKeys === null || pendingStaticReservation || table.find(".save-static-row").length) return;
++  if (staticHostsReadOnly || staticLeaseKeys === null || pendingStaticReservation || table.find(".editing-static-row").length) return;
 +
 +  const row = $('<tr class="static-reservation-draft"></tr>')
 +    .append(...staticReservationCells(values), $('<td class="actions"></td>'));
@@ -1530,28 +1541,50 @@ index 27adb7b..51953f6 100644
    $("#dhcp-hosts").on("input", function () {
 -    // Don't rebuild the table while a row is being edited (a Save button exists),
 -    // otherwise unsaved cell edits would be silently destroyed by tbody.empty()
+-    if ($("#StaticDHCPTable .save-static-row").length > 0) return;
 +    // Rebuilding the rows would discard any unconfirmed cell edits.
-     if ($("#StaticDHCPTable .save-static-row").length > 0) return;
++    if ($("#StaticDHCPTable .editing-static-row").length > 0) return;
      renderStaticDHCPTable();
    });
  });
  
+-// When editing a cell, disable all action buttons except the save button in the current row
+-$(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function () {
 +$(document).on("click keydown", '#StaticDHCPTable .static-ipaddr[role="button"]', function (event) {
 +  if (event.type === "keydown" && event.key !== "Enter" && event.key !== " ") return;
-+  if (staticHostsReadOnly || $("#StaticDHCPTable .save-static-row").length) return;
++  if (staticHostsReadOnly || $("#StaticDHCPTable .editing-static-row").length) return;
 +  event.preventDefault();
 +  $(this).attr("contenteditable", "true").trigger("focus");
 +});
 +
- // When editing a cell, disable all action buttons except the save button in the current row
--$(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function () {
-+$(document).on("focus input", '#StaticDHCPTable td[contenteditable="true"]', function () {
++$(document).on("focusout", "#StaticDHCPTable .editing-static-row", function () {
++  const row = $(this);
++  // Wait for focus to settle when switching fields inside the same draft.
++  setTimeout(() => { if (!this.contains(document.activeElement)) saveStaticRow(row); }, 0);
++}).on("keydown", "#StaticDHCPTable .editing-static-row td[contenteditable=true]", function (event) {
++  if (event.originalEvent?.isComposing || !["Enter", "Escape"].includes(event.key)) return;
++  event.preventDefault();
    const row = $(this).closest("tr");
 -  // Disable all action buttons in all rows
 -  $("#StaticDHCPTable .delete-static-row, #StaticDHCPTable .add-static-row").prop("disabled", true);
 -
-   // Add save button (a hint asking to click on the button will be shown below the table - CSS pseudo-element)
-   if (row.find(".save-static-row").length === 0) {
+-  // Add save button (a hint asking to click on the button will be shown below the table - CSS pseudo-element)
+-  if (row.find(".save-static-row").length === 0) {
+-    const idx = row.attr("data-row");
+-    const saveBtn = $(
+-      '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
+-    )
+-      .attr("data-row", idx)
+-      .attr("title", "Confirm changes to this line")
+-      .attr("data-toggle", "tooltip");
++  if (event.key === "Enter") saveStaticRow(row);
++  else row.find(".cancel-static-row").trigger("click");
++});
++
++// Start a row edit when an address field or a new reservation receives focus.
++$(document).on("focus input", '#StaticDHCPTable td[contenteditable="true"]', function () {
++  const row = $(this).closest("tr");
++  if (!row.hasClass("editing-static-row")) {
 +    if ($(this).hasClass("static-hostname") && !row.hasClass("static-reservation-draft")) return;
 +    row.find(".lease-copy-feedback").remove();
 +    if (row.is("[data-original-line]"))
@@ -1561,22 +1594,21 @@ index 27adb7b..51953f6 100644
 +    row.find(".static-hwaddr, .static-ipaddr")
 +      .removeAttr("data-copy-address tabindex role title")
 +      .attr("contenteditable", "true");
-     const idx = row.attr("data-row");
-     const saveBtn = $(
-       '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
-@@ -445,80 +1389,178 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
++    row.addClass("editing-static-row");
+     const cancelBtn = $(
+       '<button type="button" class="btn btn-warning btn-xs cancel-static-row"><span class="fa fa-fw fa-undo"></span></button>'
+     )
+-      .attr("data-row", idx)
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
 -    // Add the save button to the actions column
 -    row.find("td").last().prepend(saveBtn, " ", cancelBtn, " ");
 +    if (row.hasClass("static-reservation-draft")) {
-+      saveBtn.attr("aria-label", "Confirm").attr("title", "Confirm reservation");
 +      cancelBtn.attr("aria-label", "Cancel").attr("title", "Cancel reservation");
 +    }
 +
-+    // Add the save and cancel buttons to the actions column.
-+    row.find("td.actions").prepend(saveBtn, " ", cancelBtn, " ");
++    row.find("td.actions").prepend(cancelBtn, " ");
  
 -    // Disable the textarea to avoid losing unsaved changes to the table
 -    $("#dhcp-hosts").prop("disabled", true);
@@ -1642,13 +1674,17 @@ index 27adb7b..51953f6 100644
 +  const form = $('<form class="gateway-label-editor">');
 +  const input = $('<input class="form-control input-sm" aria-label="Gateway display label" maxlength="128" autocomplete="off">')
 +    .val(override || discovered).attr("placeholder", discovered);
-+  const cancel = $('<button type="button" class="btn btn-default btn-xs">Cancel</button>');
-+  const close = () => { form.remove(); staticDHCPTable.draw(false); $("#static-gateway .edit-gateway-label").trigger("focus"); };
-+  form.append(input, $('<button type="submit" class="btn btn-primary btn-xs">Save label</button>'), " ", cancel);
-+  cancel.on("click", close);
-+  input.on("keydown", event => { if (event.key === "Escape") { event.preventDefault(); close(); } });
-+  form.on("submit", event => {
-+    event.preventDefault();
++  const close = restoreFocus => {
++    input.off("blur");
++    form.remove();
++    staticDHCPTable.draw(false);
++    if (restoreFocus) $("#static-gateway .edit-gateway-label").trigger("focus");
++  };
++  form.append(input);
++  input.on("keydown", event => {
++    if (event.key === "Escape") { event.preventDefault(); close(true); }
++  });
++  const save = restoreFocus => {
 +    const value = input.val().trim();
 +    try {
 +      if (value && (override || value !== discovered)) localStorage.setItem("gateway-label:" + ip, value);
@@ -1657,8 +1693,10 @@ index 27adb7b..51953f6 100644
 +      utils.showAlert("error", "", "Could not save gateway label", "Allow browser storage and try again.");
 +      return;
 +    }
-+    close();
-+  });
++    close(restoreFocus);
++  };
++  input.on("blur", () => save(false));
++  form.on("submit", event => { event.preventDefault(); save(true); });
 +  cell.empty().append(form);
 +  input.trigger("focus")[0].select();
 +}
@@ -1795,8 +1833,12 @@ index 27adb7b..51953f6 100644
 +// Add a draft from an active lease for review before confirmation.
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
-   if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +1573,9 @@ $(document).on("click", ".copy-to-static", function () {
+-  if ($("#StaticDHCPTable .save-static-row").length > 0) {
++  if ($("#StaticDHCPTable .editing-static-row").length > 0) {
+     utils.showAlert(
+       "warning",
+       "",
+@@ -531,13 +1576,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1813,7 +1855,7 @@ index 27adb7b..51953f6 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1640,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1643,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1822,7 +1864,7 @@ index 27adb7b..51953f6 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1649,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1652,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  
@@ -1842,14 +1884,14 @@ index 27adb7b..51953f6 100644
 +$(document).on("focus", editableHostname, function () {
 +  const cell = $(this);
 +  const row = cell.closest("tr");
-+  const confirm = row.find(".save-static-row");
++  const editingRow = row.hasClass("editing-static-row");
 +  const cancel = row.find(".cancel-static-row");
 +  const displayName = cell.text();
-+  const previous = !confirm.length && row.is("[data-original-line]")
++  const previous = !editingRow && row.is("[data-original-line]")
 +    ? parseStaticDHCPLine(row.attr("data-original-line")).hostname : displayName;
 +  cell.removeAttr("contenteditable");
-+  if (confirm.length) {
-+    editHostname(cell, previous, () => confirm.trigger("click"), () => cancel.trigger("click"), false);
++  if (editingRow) {
++    editHostname(cell, previous, () => saveStaticRow(row), () => cancel.trigger("click"), false);
 +    return;
    }
 +  const close = () => {
