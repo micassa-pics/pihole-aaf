@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..c07dd32 100644
+index af99c0a..0e4e396 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..c07dd32 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.7";
++  const version = "1.1.8";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -93,7 +93,7 @@ index af99c0a..c07dd32 100644
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..d805130 100644
+index 27adb7b..eea3388 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,99 @@
@@ -928,14 +928,14 @@ index 27adb7b..d805130 100644
    // Trigger input to update the table
    $("#dhcp-hosts").trigger("input");
 +  if (initialLoad && staticLeaseKeys.size === 0) dhcpLeasesTable?.draw(false);
-+}
-+
+ }
+ 
 +let savedDHCPValues;
 +
 +function dhcpValue(field) {
 +  return field.type === "checkbox" ? field.checked : field.value;
- }
- 
++}
++
 +const pendingLeaseDeletes = new Map();
 +let pendingHostDeletes = [];
 +let savingDHCP = false;
@@ -1273,7 +1273,7 @@ index 27adb7b..d805130 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,44 +1115,175 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,44 +1115,170 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -1410,19 +1410,7 @@ index 27adb7b..d805130 100644
 +      { targets: [4, 5], orderable: false },
 +      { targets: [3, 6, 7], orderable: false, searchable: false },
 +    ],
-+    rowCallback(row) {
-+      const profile = $(row).data("reservation");
-+      if (!profile) return;
-+      const lease = leasesByIP.get(profile.ip);
-+      if (lease) updateExpirationBar(row, lease);
-+      $(".lease-activity", row).html(queryActivityChart(leaseActivity?.get(profile.ip)));
-+      $("input.lease-client-id", row).val(lease?.clientid || profile.clientid).closest("td").addClass("lease-client-id-field");
-+      const mac = $(".static-hwaddr", row);
-+      if (!mac.is("[contenteditable]")) {
-+        if (table.hasClass("mac-collapsed")) mac.removeAttr("data-copy-address tabindex role title");
-+        else enableAddressCopy(mac);
-+      }
-+    },
++    rowCallback: updateStaticRow,
 +    dom: dhcpTableLayout,
 +    lengthMenu: [
 +      [10, 25, 50, 100, -1],
@@ -1433,6 +1421,13 @@ index 27adb7b..d805130 100644
 +    },
 +  });
 +
++  // Keep the gateway above drafts and outside DataTables sorting, filtering, and paging.
++  const pinned = $('<tbody id="static-gateway" aria-label="Network gateway"></tbody>').insertBefore(staticDHCPTable.table().body());
++  table.on("draw.dt", () => {
++    const profile = pinned.data("profile");
++    pinned.empty();
++    if (profile) pinned.append(gatewayRow(profile));
++  });
 +  table.on("column-reorder.dt", () => queueMicrotask(() => staticDHCPTable.draw(false)));
    processDHCPConfig();
    renderStaticDHCPTable();
@@ -1471,7 +1466,7 @@ index 27adb7b..d805130 100644
      const idx = row.attr("data-row");
      const saveBtn = $(
        '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
-@@ -445,80 +1298,124 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +1293,138 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
@@ -1514,16 +1509,30 @@ index 27adb7b..d805130 100644
 +}
 +
  // On table redraw, ensure all buttons are enabled and hints are removed
++function updateStaticRow(row) {
++  const profile = $(row).data("reservation");
++  if (!profile) return;
++  const lease = leasesByIP.get(profile.ip);
++  if (lease) updateExpirationBar(row, lease);
++  $(".lease-activity", row).html(queryActivityChart(leaseActivity?.get(profile.ip)));
++  $("input.lease-client-id", row).val(lease?.clientid || profile.clientid).closest("td").addClass("lease-client-id-field");
++  const mac = $(".static-hwaddr", row);
++  if (!mac.is("[contenteditable]")) {
++    if ($("#StaticDHCPTable").hasClass("mac-collapsed")) mac.removeAttr("data-copy-address tabindex role title");
++    else enableAddressCopy(mac);
++  }
++}
++
 +function gatewayRow(profile) {
-+  const hostname = $("<td>").append($("<strong>").text("Gateway"));
-+  if (profile.name) hostname.append(document.createTextNode(" · " + profile.name));
++  const hostname = $("<td>").text(profile.name || "Router");
 +  const row = $("<tr>").addClass("dhcp-gateway-row").append(
 +    $("<td>").text(profile.ip), hostname,
 +    $("<td>").append($("<span>").addClass("lease-mac-value").text(profile.hwaddr)),
 +    $('<td class="actions">').append(queryLogLink(profile.ip))
 +  );
 +  orderStaticCells(row, profile);
-+  row.find(".lease-groups").text(renderLeaseGroups(profile, "sort"));
++  row.find(".lease-groups").empty().append('<i class="fas fa-network-wired" aria-hidden="true"></i>', " Gateway");
++  updateStaticRow(row[0]);
 +  return row[0];
 +}
 +
@@ -1637,7 +1646,7 @@ index 27adb7b..d805130 100644
    }
  
 -  tbody.find(".delete-static-row, .add-static-row").prop("disabled", false);
-+  if (gatewayIP) rows.push(gatewayRow(gateway));
++  $("#static-gateway").data("profile", gatewayIP ? gateway : null);
 +  staticDHCPTable.clear().rows.add(rows);
 +  redrawStaticDHCPTable();
    showLineNumbers();
@@ -1649,7 +1658,7 @@ index 27adb7b..d805130 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +1428,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1437,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1666,7 +1675,7 @@ index 27adb7b..d805130 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1495,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1504,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1675,7 +1684,7 @@ index 27adb7b..d805130 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1504,38 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1513,38 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  
@@ -1726,10 +1735,10 @@ index 27adb7b..d805130 100644
 +  }, close);
  });
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..eebf228 100644
+index 1cbc347..93b104e 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -12,14 +12,115 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -12,14 +12,120 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  -- Page title and level selector
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
@@ -1807,6 +1816,11 @@ index 1cbc347..eebf228 100644
 +    :is(#DHCPLeasesTable,#StaticDHCPTable).client-ids-collapsed .lease-client-heading { padding-inline: 0; }
 +    .edit-lease-name, .edit-lease-groups { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 +    .lease-toggle[aria-expanded="false"] { height: 24px; padding: 0 3px; border: 0; background: transparent; }
++    #StaticDHCPTable .dhcp-gateway-row > td {
++        background-color: rgba(60, 141, 188, .18);
++        border-bottom: 2px solid currentColor;
++    }
++    #StaticDHCPTable .dhcp-gateway-row .lease-groups { font-weight: bold; }
 +    #StaticDHCPTable .static-reservation-draft { outline: 2px solid currentColor; outline-offset: -2px; }
 +    #StaticDHCPTable .static-reservation-draft > td { background-color: rgba(60, 141, 188, .18); }
 +    .dhcp-table-controls {
@@ -1848,7 +1862,7 @@ index 1cbc347..eebf228 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +185,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +190,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1866,7 +1880,7 @@ index 1cbc347..eebf228 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,30 +232,31 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,30 +237,31 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1909,7 +1923,7 @@ index 1cbc347..eebf228 100644
                                  </tr>
                              </thead>
                              <tbody>
-@@ -163,33 +265,45 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,33 +270,45 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1974,7 +1988,7 @@ index 1cbc347..eebf228 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +324,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +329,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -1983,7 +1997,7 @@ index 1cbc347..eebf228 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,13 +365,24 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,13 +370,24 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>

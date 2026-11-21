@@ -341,10 +341,10 @@
                      <span id="cpu"></span><br>
 -                    <span id="memory"></span>
 +                    <span id="memory"></span><br>
-+                    <span id="awesome-a-fyer-version" data-dashboard="1.1.7" style="display:inline-flex;align-items:center">
-+                        <span title="Installed pages: Dashboard">&nbsp;&nbsp;Patch: v1.1.7</span>
++                    <span id="awesome-a-fyer-version" data-dashboard="1.1.8" style="display:inline-flex;align-items:center">
++                        <span title="Installed pages: Dashboard">&nbsp;&nbsp;Patch: v1.1.8</span>
 +                        <i class="fa fa-fw fa-puzzle-piece text-green-light" style="order:-1" aria-hidden="true"></i>&nbsp;
-+                        <a href="https://micassa-pics.github.io/pihole-awesome-a-fyer/check.html#dashboard=1.1.7" target="_blank" rel="noopener noreferrer" aria-label="Check for a newer patch version" title="Check for a newer patch version"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
++                        <a href="https://micassa-pics.github.io/pihole-awesome-a-fyer/check.html#dashboard=1.1.8" target="_blank" rel="noopener noreferrer" aria-label="Check for a newer patch version" title="Check for a newer patch version"><i class="fas fa-sync-alt" aria-hidden="true"></i></a>
 +                    </span>
                  </div>
              </div>
