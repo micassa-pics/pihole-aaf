@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..7e44000 100644
+index af99c0a..8ee6a25 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..7e44000 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.12";
++  const version = "1.1.13";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -93,7 +93,7 @@ index af99c0a..7e44000 100644
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..8c56954 100644
+index 27adb7b..a46ce40 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,100 @@
@@ -103,7 +103,7 @@ index 27adb7b..8c56954 100644
 -let dhcpLeaesTable = null;
 -const toasts = {};
 +const dhcpTableLayout =
-+  "<'dhcp-table-controls'flp>" +
++  "<'dhcp-table-controls'lfp>" +
 +  "<'table-responsive'tr>" +
 +  "<'dhcp-table-controls'ip>";
 +
@@ -1755,10 +1755,10 @@ index 27adb7b..8c56954 100644
 +  }, close);
  });
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..93b104e 100644
+index 1cbc347..b8ec2f1 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -12,14 +12,120 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -12,14 +12,130 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  -- Page title and level selector
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
@@ -1847,9 +1847,19 @@ index 1cbc347..93b104e 100644
 +        display: flex; align-items: center; gap: 1em; overflow-x: auto; padding: 3px 1px;
 +    }
 +    .dhcp-table-controls > div { flex: none; white-space: nowrap; }
-+    .dhcp-table-controls .dataTables_paginate { margin-inline-start: auto; }
++    .dhcp-table-controls .dataTables_filter,
++    .dhcp-table-controls .dataTables_info + .dataTables_paginate { margin-inline-start: auto; }
 +    .dhcp-table-controls label { margin-bottom: 0; }
 +    .dhcp-table-controls .dataTables_filter input { width: clamp(6em, 12vw, 15em); }
++    @media (max-width: 991px) {
++        .dhcp-table-controls { gap: .5em; }
++        .dhcp-table-controls .dataTables_filter input { width: 6em; }
++        .dhcp-table-controls .pagination > li > a { padding-inline: .4em; }
++        .dhcp-table-controls .pagination > :is(.previous,.next) > a { font-size: 0; padding-inline: 7px; }
++        .dhcp-table-controls .pagination > .previous > a::after { content: "‹"; font-size: 14px; }
++        .dhcp-table-controls .pagination > .next > a::after { content: "›"; font-size: 14px; }
++        .dhcp-table-controls .dataTables_length select { width: auto; padding-inline: .3em; }
++    }
 +    #dhcp-pending[hidden] { display: none; }
 +    #dhcp-pending { max-width: min(32em, calc(100vw - 2em)); }
 +    #dhcp-pending ul { max-height: 24vh; overflow: auto; overflow-wrap: anywhere; padding-left: 2.5em; margin-right: 1em; }
@@ -1882,7 +1892,7 @@ index 1cbc347..93b104e 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +190,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +200,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1900,7 +1910,7 @@ index 1cbc347..93b104e 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,30 +237,31 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,30 +247,31 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1943,7 +1953,7 @@ index 1cbc347..93b104e 100644
                                  </tr>
                              </thead>
                              <tbody>
-@@ -163,33 +270,45 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,33 +280,45 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2008,7 +2018,7 @@ index 1cbc347..93b104e 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +329,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +339,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -2017,7 +2027,7 @@ index 1cbc347..93b104e 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,13 +370,24 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,13 +380,24 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>

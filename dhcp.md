@@ -36,7 +36,7 @@ The upper table shows active leases without a reserved IP address. The static ta
 
 ![Dynamic DHCP leases with the option to add a reservation.](assets/active-dhcp-leases.jpg)
 
-Both tables have one row of controls. Search on the left, choose the number of entries, or change pages on the right. Search static reservations by IP address, hostname, or MAC address. Select the IP address or hostname heading to sort. To edit the entries as text, open **Manual Edit Static DHCP Entries**. Confirm a deletion to queue it. Review the list under **Save & Apply**, then select the button to delete the listed entries. Other DHCP edits apply when you finish the field or confirm the row.
+Both tables have one row of controls. Choose the number of entries on the far left. Search and page controls sit together on the far right. Search static reservations by IP address, hostname, or MAC address. Select the IP address or hostname heading to sort. To edit the entries as text, open **Manual Edit Static DHCP Entries**. Confirm a deletion to queue it. Review the list under **Save & Apply**, then select the button to delete the listed entries. Other DHCP edits apply when you finish the field or confirm the row.
 
 [Compare stock and patched DHCP with the before-and-after slider](https://micassa-pics.github.io/pihole-awesome-a-fyer/comparison/#dhcp)
 
