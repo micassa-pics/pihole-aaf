@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..be2767f 100644
+index af99c0a..154ec5b 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..be2767f 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.14";
++  const version = "1.1.15";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -93,10 +93,10 @@ index af99c0a..be2767f 100644
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..aa62bda 100644
+index 27adb7b..171623d 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
-@@ -9,8 +9,115 @@
+@@ -9,8 +9,141 @@
  
  "use strict";
  
@@ -111,7 +111,9 @@ index 27adb7b..aa62bda 100644
 +let staticDHCPTable = null;
 +let staticLeaseKeys = null;
 +let gatewayIP = "";
-+let gatewayIdentity = {};
++const networkByIP = new Map();
++const vendorsByMAC = new Map();
++let networkRequest;
 +let staticHostsReadOnly = false;
 +let pendingStaticReservation = null;
 +let leaseActivity = null;
@@ -175,22 +177,46 @@ index 27adb7b..aa62bda 100644
 +    renderStaticDHCPTable();
 +}
 +
-+function updateGatewaySummary(address) {
-+  const next = utils.validateIPv4(address) && address !== "0.0.0.0" ? address : "";
-+  if (next !== gatewayIP) {
-+    gatewayIdentity = {};
-+    gatewayIP = next;
-+    if (next) {
-+      $.getJSON(document.body.dataset.apiurl + "/network/devices", { max_devices: 999, max_addresses: 25 })
-+        .done(({ devices }) => {
-+          if (gatewayIP !== next) return;
-+          const device = devices?.find(item => item.ips?.some(entry => entry.ip === next));
-+          const entry = device?.ips.find(item => item.ip === next);
-+          gatewayIdentity = { name: entry?.name, vendor: device?.macVendor };
-+          staticDHCPTable?.draw(false);
-+        });
-+    }
++function migrateVendorColumn(settings, state) {
++  if (state.columns?.length !== 8) return;
++  const shift = index => index >= 3 ? index + 1 : index;
++  state.columns.splice(3, 0, { visible: true, search: { ...state.columns[2].search, search: "" } });
++  state.order = (state.order || []).map(([index, direction]) => [shift(index), direction]);
++  if (state.ColReorder?.length === 8) {
++    const order = state.ColReorder.map(shift);
++    order.splice(order.indexOf(2) + 1, 0, 3);
++    state.ColReorder = order;
 +  }
++}
++
++function loadNetworkDevices() {
++  if (networkRequest) return;
++  networkRequest = $.getJSON(document.body.dataset.apiurl + "/network/devices", { max_devices: 999, max_addresses: 25 })
++    .done(({ devices }) => {
++      for (const device of devices || []) {
++        const mac = reservationMAC(device.hwaddr || "");
++        if (mac && device.macVendor) vendorsByMAC.set(mac, device.macVendor);
++        for (const entry of device.ips || []) {
++          const previous = networkByIP.get(entry.ip);
++          if (!previous || entry.lastSeen > previous.lastSeen)
++            networkByIP.set(entry.ip, { name: entry.name, vendor: device.macVendor, lastSeen: entry.lastSeen });
++        }
++      }
++      dhcpLeasesTable?.draw(false);
++      staticDHCPTable?.draw(false);
++    })
++    .fail(() => { networkRequest = null; });
++}
++
++function updateVendor(row, profile) {
++  const mac = reservationMAC(profile?.hwaddr || "");
++  const vendor = mac ? vendorsByMAC.get(mac) : networkByIP.get(profile?.ip)?.vendor;
++  $(".lease-vendor-value", row).text(vendor || "—").attr("title", vendor || "Vendor unknown");
++}
++
++function updateGatewaySummary(address) {
++  gatewayIP = utils.validateIPv4(address) && address !== "0.0.0.0" ? address : "";
++  if (gatewayIP) loadNetworkDevices();
 +  pendingLeaseDeletes.delete(gatewayIP);
 +  $("#dhcp-gateway-summary").text(gatewayIP ? "Gateway: " + gatewayIP : "");
 +}
@@ -214,7 +240,7 @@ index 27adb7b..aa62bda 100644
  
  // DHCP leases tooltips
  $("body").tooltip({ selector: '[data-toggle="tooltip"]', container: "body" });
-@@ -22,121 +129,290 @@ function renderHostnameCLID(data, type) {
+@@ -22,121 +155,292 @@ function renderHostnameCLID(data, type) {
        return "<em>---</em>";
      }
  
@@ -448,6 +474,7 @@ index 27adb7b..aa62bda 100644
 -    ],
 -    columnDefs: [
 +      { data: "name", render: renderLeaseHostname },
++      { data: null, render: () => '<span class="lease-vendor-value"></span>', className: "lease-vendor-cell", searchable: false, orderable: false },
 +      { data: "expires", render: (value, type) => type === "display" ? expirationButton : utils.renderTimespan(value, type) },
        {
 -        targets: 0,
@@ -488,6 +515,7 @@ index 27adb7b..aa62bda 100644
      },
      rowCallback(row, data) {
        $(row).attr("data-id", data.ip);
++      updateVendor(row, data);
 +      updateExpirationBar(row, data);
 +      const macCell = $(".lease-mac-cell", row);
 +      if ($("#DHCPLeasesTable").hasClass("mac-collapsed")) macCell.removeAttr("data-copy-address tabindex role title");
@@ -584,8 +612,11 @@ index 27adb7b..aa62bda 100644
      lengthMenu: [
        [10, 25, 50, 100, -1],
        [10, 25, 50, 100, "All"],
-@@ -147,6 +423,9 @@ $(() => {
+@@ -145,8 +449,12 @@ $(() => {
+       emptyTable: "No DHCP leases found.",
+     },
      stateSave: true,
++    stateLoadParams: migrateVendorColumn,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
 +      data.leaseIpFirst = true;
@@ -594,7 +625,7 @@ index 27adb7b..aa62bda 100644
        utils.stateSaveCallback("dhcp-leases-table", data);
      },
      stateLoadCallback() {
-@@ -156,79 +435,495 @@ $(() => {
+@@ -156,79 +464,496 @@ $(() => {
          return null;
        }
  
@@ -631,6 +662,7 @@ index 27adb7b..aa62bda 100644
 +    const show = target.hasClass(this.dataset.collapse);
 +    const tables = $("#DHCPLeasesTable, #StaticDHCPTable").toggleClass(this.dataset.collapse, !show);
 +    const buttons = tables.find('.lease-toggle[data-collapse="' + this.dataset.collapse + '"]');
++    if (show && this.dataset.collapse === "vendor-collapsed") loadNetworkDevices();
 +    buttons.text(show ? this.dataset.label : this.dataset.short);
 +    const label = (show ? "Hide " : "Show ") + this.dataset.label;
 +    buttons.attr({ "aria-expanded": String(show), "aria-label": label, title: label });
@@ -656,11 +688,8 @@ index 27adb7b..aa62bda 100644
 +function enableAddressCopy(cell) {
 +  if (!cell.text().trim() || cell.text().trim() === "*") return;
 +  cell.attr({ "data-copy-address": "", tabindex: 0, role: "button", title: "Copy address" });
- }
- 
--function delLease(ip) {
--  utils.disableAll();
--  toasts[ip] = utils.showAlert("info", "", "Deleting lease...", ip, null);
++}
++
 +async function copyLeaseValue() {
 +  const cell = $(this).closest("td");
 +  cell.find(".lease-copy-feedback").remove();
@@ -688,6 +717,20 @@ index 27adb7b..aa62bda 100644
 +  const feedback = $('<span class="lease-copy-feedback label label-info" role="status"></span>').appendTo(cell);
 +  feedback.text("Copied");
 +  setTimeout(() => feedback.remove(), 1200);
+ }
+ 
+-function delLease(ip) {
+-  utils.disableAll();
+-  toasts[ip] = utils.showAlert("info", "", "Deleting lease...", ip, null);
++function staticAddressCopyMode(row) {
++  if (!staticHostsReadOnly) {
++    row.find(".static-hostname").attr("contenteditable", "true");
++    row.find(".static-ipaddr").attr({ role: "button", tabindex: 0, title: "Edit reservation address" });
++  }
++  row.find(".static-ipaddr, .static-hwaddr").removeAttr("contenteditable");
++  const mac = row.find(".static-hwaddr");
++  mac.html($("<span>", { class: "lease-mac-value", text: mac.text() }));
++  if (!$("#StaticDHCPTable").hasClass("mac-collapsed")) enableAddressCopy(mac);
 +}
  
 -  $.ajax({
@@ -714,15 +757,12 @@ index 27adb7b..aa62bda 100644
 -          toasts[ip]
 -        );
 -      }
-+function staticAddressCopyMode(row) {
-+  if (!staticHostsReadOnly) {
-+    row.find(".static-hostname").attr("contenteditable", "true");
-+    row.find(".static-ipaddr").attr({ role: "button", tabindex: 0, title: "Edit reservation address" });
-+  }
-+  row.find(".static-ipaddr, .static-hwaddr").removeAttr("contenteditable");
-+  const mac = row.find(".static-hwaddr");
-+  mac.html($("<span>", { class: "lease-mac-value", text: mac.text() }));
-+  if (!$("#StaticDHCPTable").hasClass("mac-collapsed")) enableAddressCopy(mac);
++function deleteLease() {
++  const ip = $(this).attr("data-del-ip");
++  if (!globalThis.confirm("Queue deletion of the active DHCP lease for " + ip + "?")) return;
++  pendingLeaseDeletes.set(ip, leasesByIP.get(ip));
++  dhcpLeasesTable.clear().rows.add(dynamicLeases()).draw(false);
++  updatePendingDHCP();
 +}
  
 -      // Clear selection after deletion
@@ -739,14 +779,6 @@ index 27adb7b..aa62bda 100644
 -        toasts[ip]
 -      );
 -      console.log(exception); // eslint-disable-line no-console
-+function deleteLease() {
-+  const ip = $(this).attr("data-del-ip");
-+  if (!globalThis.confirm("Queue deletion of the active DHCP lease for " + ip + "?")) return;
-+  pendingLeaseDeletes.set(ip, leasesByIP.get(ip));
-+  dhcpLeasesTable.clear().rows.add(dynamicLeases()).draw(false);
-+  updatePendingDHCP();
-+}
-+
 +async function delLease(ip) {
 +  const toast = utils.showAlert("info", "", "Deleting lease...", ip, null);
 +  let response;
@@ -956,8 +988,8 @@ index 27adb7b..aa62bda 100644
    // Trigger input to update the table
    $("#dhcp-hosts").trigger("input");
 +  if (initialLoad && staticLeaseKeys.size === 0) dhcpLeasesTable?.draw(false);
-+}
-+
+ }
+ 
 +let savedDHCPValues;
 +
 +function dhcpValue(field) {
@@ -1029,8 +1061,8 @@ index 27adb7b..aa62bda 100644
 +    }
 +    updatePendingDHCP();
 +  }
- }
- 
++}
++
 +function saveHosts(manual = false) {
 +  const field = document.getElementById("dhcp-hosts");
 +  const stored = hostLines(savedDHCPValues.get(field));
@@ -1137,7 +1169,7 @@ index 27adb7b..aa62bda 100644
      })
      .fail(data => {
        apiFailure(data);
-@@ -237,7 +932,7 @@ function processDHCPConfig() {
+@@ -237,7 +962,7 @@ function processDHCPConfig() {
  
  function parseStaticDHCPLine(line) {
    // Accepts: [hwaddr][,ipaddr][,hostname] (all optional, comma-separated, no advanced tokens)
@@ -1146,7 +1178,7 @@ index 27adb7b..aa62bda 100644
  
    // If the line is empty, return an object with empty fields
    if (!line.trim())
-@@ -264,7 +959,7 @@ function parseStaticDHCPLine(line) {
+@@ -264,7 +989,7 @@ function parseStaticDHCPLine(line) {
      // Advanced if the part is "infinite", "ignore" or a lease time value
      if (/^(infinite|ignore|\d+(w|W|d|D|h|H|m|M|s|S))$/u.test(part)) return "advanced";
  
@@ -1155,7 +1187,7 @@ index 27adb7b..aa62bda 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +995,51 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +1025,51 @@ function parseStaticDHCPLine(line) {
    };
  }
  
@@ -1210,7 +1242,7 @@ index 27adb7b..aa62bda 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,10 +1052,14 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,10 +1082,14 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1228,7 +1260,7 @@ index 27adb7b..aa62bda 100644
  
    // Update "data-original-line" to containing the new saved values
    row.attr("data-original-line", lines[rowIdx]);
-@@ -337,19 +1070,28 @@ $(document).on("click", ".save-static-row", function () {
+@@ -337,19 +1100,28 @@ $(document).on("click", ".save-static-row", function () {
    // then remove highlight colors from all cells on this row
    $("td", row).blur();
  
@@ -1264,7 +1296,7 @@ index 27adb7b..aa62bda 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -369,16 +1111,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -369,16 +1141,15 @@ $(document).on("click", ".cancel-static-row", function () {
    // Trigger "blur" event to remove highlight colors and titles from all cells on this row
    row.find(".static-hwaddr, .static-ipaddr, .static-hostname").blur();
  
@@ -1285,7 +1317,7 @@ index 27adb7b..aa62bda 100644
    }
  });
  
-@@ -386,6 +1127,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +1157,15 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1301,7 +1333,7 @@ index 27adb7b..aa62bda 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,44 +1143,173 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,44 +1173,176 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -1322,6 +1354,7 @@ index 27adb7b..aa62bda 100644
 +  mac.classList.add("lease-mac-cell");
 +  const cells = [
 +    cell("lease-groups", profile ? renderLeaseGroups(profile, "display") : ""), ip, name,
++    cell("lease-vendor-cell", '<span class="lease-vendor-value"></span>'),
 +    cell("lease-expiry", lease ? expirationButton : "—"), mac,
 +    cell("lease-client-cell", renderLeaseClientID(lease?.clientid || profile?.clientid || "*", "display")),
 +    cell("lease-activity"), actions,
@@ -1336,6 +1369,7 @@ index 27adb7b..aa62bda 100644
 +  const row = $('<tr class="static-reservation-draft"></tr>')
 +    .append(...staticReservationCells(values), $('<td class="actions"></td>'));
 +  orderStaticCells(row);
++  updateVendor(row, values);
 +  pendingStaticReservation = values;
 +
 +  row.find(".lease-groups").append($("<strong>", { text: "New" }));
@@ -1431,12 +1465,13 @@ index 27adb7b..aa62bda 100644
 +    colReorder: { realtime: false },
 +    select: false,
 +    stateSave: true,
++    stateLoadParams: migrateVendorColumn,
 +    autoWidth: false,
 +    order: [[1, "asc"]],
 +    columnDefs: [
 +      { targets: 1, type: "static-dhcp-ip" },
-+      { targets: [4, 5], orderable: false },
-+      { targets: [3, 6, 7], orderable: false, searchable: false },
++      { targets: [5, 6], orderable: false },
++      { targets: [3, 4, 7, 8], orderable: false, searchable: false },
 +    ],
 +    rowCallback: updateStaticRow,
 +    dom: dhcpTableLayout,
@@ -1497,7 +1532,7 @@ index 27adb7b..aa62bda 100644
      const idx = row.attr("data-row");
      const saveBtn = $(
        '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
-@@ -445,80 +1324,172 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +1357,174 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
@@ -1507,12 +1542,12 @@ index 27adb7b..aa62bda 100644
 +      saveBtn.attr("aria-label", "Confirm").attr("title", "Confirm reservation");
 +      cancelBtn.attr("aria-label", "Cancel").attr("title", "Cancel reservation");
 +    }
++
++    // Add the save and cancel buttons to the actions column.
++    row.find("td.actions").prepend(saveBtn, " ", cancelBtn, " ");
  
 -    // Disable the textarea to avoid losing unsaved changes to the table
 -    $("#dhcp-hosts").prop("disabled", true);
-+    // Add the save and cancel buttons to the actions column.
-+    row.find("td.actions").prepend(saveBtn, " ", cancelBtn, " ");
-+
 +    // Keep the draft visible until it is confirmed or canceled.
 +    setStaticDHCPEditing(true);
    }
@@ -1549,6 +1584,7 @@ index 27adb7b..aa62bda 100644
 +function updateStaticRow(row) {
 +  const profile = $(row).data("reservation");
 +  if (!profile) return;
++  updateVendor(row, profile);
 +  const lease = leasesByIP.get(profile.ip);
 +  if (lease) updateExpirationBar(row, lease);
 +  $(".lease-activity", row).html(queryActivityChart(leaseActivity?.get(profile.ip)));
@@ -1596,6 +1632,7 @@ index 27adb7b..aa62bda 100644
 +function gatewayRow(profile) {
 +  let override = "";
 +  try { override = localStorage.getItem("gateway-label:" + profile.ip) || ""; } catch { /* Storage is optional. */ }
++  const gatewayIdentity = networkByIP.get(profile.ip) || {};
 +  const discovered = displayClientName(profile.ip, profile.name || gatewayIdentity.name) || gatewayIdentity.vendor || "Router";
 +  const button = $('<button type="button" class="edit-gateway-label" title="Edit gateway display label for this browser">')
 +    .text(override || discovered);
@@ -1723,7 +1760,7 @@ index 27adb7b..aa62bda 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +1502,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1537,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1740,7 +1777,7 @@ index 27adb7b..aa62bda 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1569,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1604,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1749,7 +1786,7 @@ index 27adb7b..aa62bda 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1578,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1613,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  
@@ -1802,10 +1839,10 @@ index 27adb7b..aa62bda 100644
 +  }, close);
  });
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..7caa284 100644
+index 1cbc347..1ffd4d5 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -12,14 +12,131 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -12,14 +12,137 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  -- Page title and level selector
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
@@ -1862,10 +1899,11 @@ index 1cbc347..7caa284 100644
 +    .lease-expiration > span { background: currentColor; }
 +    .lease-expiration.unknown-duration { border-style: dashed; }
 +    :is(#DHCPLeasesTable,#StaticDHCPTable) {
++        --vendor-width: 165px;
 +        --mac-width: 160px;
 +        --cid-width: 192px;
 +        width: 100%; table-layout: fixed;
-+        min-width: calc(780px + var(--mac-width) + var(--cid-width));
++        min-width: calc(780px + var(--vendor-width) + var(--mac-width) + var(--cid-width));
 +    }
 +    .mac-collapsed:is(#DHCPLeasesTable,#StaticDHCPTable) { --mac-width: 38px; }
 +    .client-ids-collapsed:is(#DHCPLeasesTable,#StaticDHCPTable) { --cid-width: 34px; }
@@ -1875,10 +1913,15 @@ index 1cbc347..7caa284 100644
 +    .lease-groups-heading { --column-width: 146px; }
 +    .lease-ip-heading { --column-width: 132px; }
 +    .lease-expiry-heading { --column-width: 100px; }
++    .lease-vendor-heading { --column-width: var(--vendor-width); }
++    .vendor-collapsed:is(#DHCPLeasesTable,#StaticDHCPTable) { --vendor-width: 54px; }
++    .vendor-collapsed .lease-vendor-value { display: none; }
++    .lease-vendor-cell { overflow: hidden; text-overflow: ellipsis; }
 +    .lease-mac-heading { --column-width: var(--mac-width); }
 +    .lease-client-heading { --column-width: var(--cid-width); }
 +    thead .lease-activity { --column-width: 137px; }
 +    .lease-actions-heading { --column-width: 120px; }
++    :is(#DHCPLeasesTable,#StaticDHCPTable).vendor-collapsed .lease-vendor-heading,
 +    :is(#DHCPLeasesTable,#StaticDHCPTable).mac-collapsed .lease-mac-heading,
 +    :is(#DHCPLeasesTable,#StaticDHCPTable).client-ids-collapsed .lease-client-heading { padding-inline: 0; }
 +    .edit-lease-name, .edit-lease-groups { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
@@ -1940,7 +1983,7 @@ index 1cbc347..7caa284 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +201,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +207,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1958,7 +2001,7 @@ index 1cbc347..7caa284 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,30 +248,31 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,30 +254,32 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -1981,7 +2024,7 @@ index 1cbc347..7caa284 100644
                  <div class="row">
                      <div class="col-md-12">
 -                        <table id="DHCPLeasesTable" class="table table-striped table-bordered nowrap" width="100%">
-+                        <table id="DHCPLeasesTable" class="mac-collapsed client-ids-collapsed table table-striped table-bordered nowrap" width="100%">
++                        <table id="DHCPLeasesTable" class="vendor-collapsed mac-collapsed client-ids-collapsed table table-striped table-bordered nowrap" width="100%">
                              <thead>
                                  <tr>
 -                                    <td></td>
@@ -1993,6 +2036,7 @@ index 1cbc347..7caa284 100644
 -                                    <th>Expiration</th>
 -                                    <th>Client ID</th>
 -                                    <td></td>
++                                    <th class="lease-vendor-heading" data-dt-order="disable"><?=leaseToggle('Vendor', 'Vendor', 'vendor-collapsed')?></th>
 +                                    <th class="lease-expiry-heading">Expiration</th>
 +                                    <th class="lease-mac-heading" data-dt-order="disable"><?=leaseToggle('MAC address', 'MAC', 'mac-collapsed')?></th>
 +                                    <th class="lease-client-heading" data-dt-order="disable"><?=leaseToggle('Client ID', 'CID', 'client-ids-collapsed')?></th>
@@ -2001,7 +2045,7 @@ index 1cbc347..7caa284 100644
                                  </tr>
                              </thead>
                              <tbody>
-@@ -163,33 +281,45 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,33 +288,46 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2035,12 +2079,13 @@ index 1cbc347..7caa284 100644
 -                                </tbody>
 -                            </table>
 -                        </div>
-+                        <table id="StaticDHCPTable" class="mac-collapsed client-ids-collapsed table table-striped table-bordered nowrap" width="100%">
++                        <table id="StaticDHCPTable" class="vendor-collapsed mac-collapsed client-ids-collapsed table table-striped table-bordered nowrap" width="100%">
 +                            <thead>
 +                                <tr>
 +                                    <th class="lease-groups-heading">Groups</th>
 +                                <th class="lease-ip-heading">IP address</th>
 +                                <th>Hostname</th>
++                                <th class="lease-vendor-heading" data-dt-order="disable"><?=leaseToggle('Vendor', 'Vendor', 'vendor-collapsed')?></th>
 +                                <th class="lease-expiry-heading">Expiration</th>
 +                                <th class="lease-mac-heading" data-dt-order="disable"><?=leaseToggle('MAC address', 'MAC', 'mac-collapsed')?></th>
 +                                <th class="lease-client-heading" data-dt-order="disable"><?=leaseToggle('Client ID', 'CID', 'client-ids-collapsed')?></th>
@@ -2066,7 +2111,7 @@ index 1cbc347..7caa284 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +340,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +348,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -2075,7 +2120,7 @@ index 1cbc347..7caa284 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,13 +381,24 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,13 +389,24 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
