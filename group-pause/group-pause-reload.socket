@@ -1,0 +1,10 @@
+[Unit]
+Description=Local fixed Pi-hole list reload
+
+[Socket]
+ListenStream=/run/group-pause-reload.sock
+SocketUser=1000
+SocketMode=0600
+Accept=yes
+MaxConnections=1
+RemoveOnStop=yes

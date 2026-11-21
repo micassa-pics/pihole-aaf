@@ -1,0 +1,18 @@
+[Unit]
+Description=Run the configured Pi-hole list reload
+
+[Service]
+# Socket activation supplies no command arguments. Return OK only on success.
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+ExecStart=/bin/sh -ec '/usr/bin/docker exec pihole pihole reloadlists >/dev/null && echo OK'
+TimeoutStartSec=30
+RuntimeMaxSec=30
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX

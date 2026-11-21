@@ -3,6 +3,7 @@
   const menu = document.querySelector("#pihole-disable");
   if (!menu) return;
   const prefix = "awesome-a-fyer-pause-";
+  const donePrefix = "awesome-a-fyer-done-";
   const devicePrefix = "awesome-a-fyer-device-";
   const endpoint = document.body.dataset.apiurl + "/groups";
   const box = document.createElement("li");
@@ -104,7 +105,7 @@
       paused = new Set(groups.filter(g => g.name.startsWith(devicePrefix)).map(g => g.comment));
       void loadDevices(seq);
       list.replaceChildren();
-      for (const group of groups.filter(g => !g.name.startsWith(prefix) && !g.name.startsWith(devicePrefix))) {
+      for (const group of groups.filter(g => !g.name.startsWith(prefix) && !g.name.startsWith(devicePrefix) && !g.name.startsWith(donePrefix))) {
         const label = document.createElement("label");
         label.style.display = "block";
         const input = document.createElement("input");
@@ -153,14 +154,14 @@
     const token = Array.from(crypto.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, "0")).join("");
     const request = prefix + token;
     try {
-      status.textContent = "Starting group pause…";
+      status.textContent = "Applying blocking change…";
       const response = await $.ajax({ url: endpoint, method: "POST", contentType: "application/json",
         data: JSON.stringify({ name: [request], enabled: false, comment: JSON.stringify(ip ? { seconds, device: ip, resume: restore } : { seconds, groups: targets }) }) });
       if (response.processed?.errors?.length) throw Error("Pi-hole rejected the request.");
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 60; i++) {
         await new Promise(resolve => setTimeout(resolve, 500));
         const groups = await getGroups();
-        if (groups.some(g => g.name === request)) continue;
+        if (!groups.some(g => g.name === donePrefix + token)) continue;
         if (ip) {
           const marker = groups.find(g => g.name.startsWith(devicePrefix) && g.comment === ip);
           if (restore ? !!marker : marker?.name !== devicePrefix + token) throw Error("Could not confirm the change for " + ip + ".");
@@ -182,6 +183,19 @@
       await refresh();
     }
   }
+  // Validate the original input before the stock minutes handler converts it.
+  document.addEventListener("click", event => {
+    if (!event.target.closest("#pihole-disable-custom")) return;
+    const field = document.getElementById("customTimeout");
+    const seconds = Number(field.value) * ($("#btnMins").hasClass("active") ? 60 : 1);
+    if (field.value.trim() && Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 2147483647) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    field.setCustomValidity("Enter a positive duration in whole seconds.");
+    field.reportValidity();
+    field.setCustomValidity("");
+    field.focus();
+  }, true);
   // Stock presets and the custom-time dialog already call this one function.
   const changeBlocking = window.piholeChange;
   window.piholeChange = function (action, duration) {

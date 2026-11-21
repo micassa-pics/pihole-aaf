@@ -1,16 +1,36 @@
 [Unit]
-Description=Restore timed Pi-hole group pauses
-After=docker.service
+Description=Restore timed Pi-hole group and device pauses
+Requires=group-pause-reload.socket
+After=group-pause-reload.socket docker.service
 
 [Service]
 Type=simple
+# Set this to the non-root owner of the host gravity database and directory.
+User=1000
+Group=1000
 StateDirectory=pihole-group-pause
-UMask=0077
-ExecStart=/usr/bin/python3 /usr/local/lib/pihole-group-pause/worker.py /opt/pihole/config/gravity.db /var/lib/pihole-group-pause/timers.sqlite /usr/bin/docker exec pihole pihole reloadlists
+StateDirectoryMode=0700
+UMask=0007
+ExecStart=/usr/bin/python3 -IB /usr/local/lib/pihole-group-pause/worker.py /gravity/gravity.db /var/lib/pihole-group-pause/timers.sqlite /run/group-pause-reload.sock
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=yes
-PrivateTmp=yes
+CapabilityBoundingSet=
+PrivateNetwork=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+RestrictNamespaces=yes
+RestrictAddressFamilies=AF_UNIX
+ProtectSystem=strict
+RootDirectory=/usr/local/lib/pihole-group-pause/root
+MountAPIVFS=yes
+InaccessiblePaths=-/proc
+BindReadOnlyPaths=/usr /lib /run/group-pause-reload.sock
+BindReadOnlyPaths=-/lib64
+BindPaths=/opt/pihole/config:/gravity
+ReadWritePaths=/gravity /var/lib/pihole-group-pause
 
 [Install]
 WantedBy=multi-user.target

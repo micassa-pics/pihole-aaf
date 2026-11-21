@@ -14,6 +14,7 @@ class GroupPauseTest(unittest.TestCase):
             gravity = Path(root) / "gravity.db"
             state = Path(root) / "timer.db"
             db = sqlite3.connect(gravity)
+            db.execute("PRAGMA foreign_keys=ON")
             self.addCleanup(db.close)
             db.execute('CREATE TABLE "group"(id INTEGER PRIMARY KEY,name TEXT,enabled INTEGER,date_added INTEGER,description TEXT)')
             db.executemany('INSERT INTO "group" VALUES(?,?,?,1000,NULL)',
@@ -29,7 +30,7 @@ class GroupPauseTest(unittest.TestCase):
             def check(now, flags):
                 with patch.object(worker.time, "time", return_value=now), patch.object(worker.subprocess, "run"):
                     worker.tick(gravity, state, ["reload"])
-                self.assertEqual([r[0] for r in db.execute('SELECT enabled FROM "group" ORDER BY id')], flags)
+                self.assertEqual([r[0] for r in db.execute("SELECT enabled FROM [group] WHERE name NOT LIKE ? ORDER BY id", (worker.DONE_PREFIX + "%",))], flags)
 
             request([(1, "TV"), (2, "Music")], 10, 1000)
             check(1000, [1, 0, 0, 0])
@@ -74,6 +75,33 @@ class GroupPauseTest(unittest.TestCase):
             self.assertTrue(db.execute("SELECT 1 FROM client WHERE ip='2001:db8::5'").fetchone())
             device("2001:db8::5", 0, 9000, resume=True)
             self.assertFalse(db.execute("SELECT 1 FROM client WHERE ip='2001:db8::5'").fetchone())
+            device("192.0.2.90", 0, 9010)
+            db.execute("UPDATE client SET comment='office note' WHERE ip='192.0.2.90'")
+            db.execute("DELETE FROM [group] WHERE name=?", (worker.DEVICE_PREFIX + "b" * 32,))
+            db.commit()
+            advance(9011)
+            self.assertIsNone(db.execute("SELECT id FROM client WHERE ip='192.0.2.90'").fetchone())
+            from contextlib import closing
+            with closing(sqlite3.connect(state)) as records:
+                self.assertEqual(records.execute("SELECT ip,comment FROM client_notes").fetchall(),
+                                 [("192.0.2.90", "office note")])
+                self.assertFalse(records.execute("SELECT 1 FROM device_timers").fetchone())
+
+            import subprocess
+            token = "d" * 32
+            db.execute("INSERT INTO [group](name,enabled,date_added,description) VALUES(?,0,?,?)",
+                       (worker.PREFIX + token, 9020, json.dumps({"groups":[{"id":2,"name":"Music"}],"seconds":10})))
+            db.commit()
+            with patch.object(worker.time, "time", return_value=9020), patch.object(worker.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "reload")):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    worker.tick(gravity, state, ["reload"])
+            def receipt():
+                return db.execute("SELECT 1 FROM [group] WHERE name=?", (worker.DONE_PREFIX + token,)).fetchone()
+            self.assertIsNone(receipt())
+            advance(9021)
+            self.assertTrue(receipt())
+            advance(9082)
+            self.assertIsNone(receipt())
             db.close()
 
 
