@@ -1,24 +1,31 @@
 diff --git a/queries.lp b/queries.lp
-index dd07cfd..8d0f360 100644
+index dd07cfd..99fe0eb 100644
 --- a/queries.lp
 +++ b/queries.lp
-@@ -153,7 +153,7 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -153,7 +153,12 @@ mg.include('scripts/lua/header_authenticated.lp','r')
      <div class="col-md-12">
          <div class="box" id="recent-queries">
              <div class="box-header with-border">
 -                <h3 class="box-title">Recent Queries</h3>
-+                <h3 class="box-title">Recent Queries<span id="query-client-heading" hidden> – <strong><button type="button" id="query-client-label" title="Edit client filter"></button></strong><input id="query-client-edit" type="text" aria-label="Client filter hostname or IP" enterkeyhint="go" autocomplete="off" autocapitalize="none" spellcheck="false" hidden></span></h3>
++                <h3 class="box-title">Recent Queries<span id="query-client-heading" hidden> –
++                    <input id="query-client-edit" class="form-control" type="text" aria-label="Client filter hostname or IP" enterkeyhint="go" autocomplete="off" autocapitalize="none" spellcheck="false">
++                    <span id="query-client-actions" hidden>
++                        <button type="button" id="query-client-apply" class="btn btn-primary">Apply</button>
++                        <button type="button" id="query-client-cancel" class="btn btn-default">Cancel</button>
++                    </span></span></h3>
                  <div class="pull-right align-click-options">
                      <span><input type="checkbox" id="live"><label for="live">Live update</label></span>
                      <button type="button" id="refresh" class="btn btn-sm btn-info btn-flat">Refresh</button>
-@@ -198,6 +198,16 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -198,6 +203,18 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  
  <script src="<?=pihole.fileversion('vendor/bootstrap-select/bootstrap-select.min.js')?>"></script>
  <script src="<?=pihole.fileversion('vendor/daterangepicker/daterangepicker.min.js')?>"></script>
 +<style>
-+    #query-client-label { font: inherit; color: inherit; background: none; border: 0; padding: 0; }
-+    #query-client-label:hover { text-decoration: underline; }
-+    #query-client-edit { font-weight: bold; max-width: 65vw; }
++    #query-client-edit { display: inline-block; width: 18ch; max-width: 75vw; font-size: 16px; font-weight: bold; vertical-align: middle; }
++    #query-client-actions { display: inline-block; }
++    @media (pointer: coarse) {
++        #query-client-edit, #query-client-actions button { min-height: 44px; }
++    }
 +    #query-client-heading[hidden], #query-client-heading [hidden] { display: none; }
 +    #all-queries > :is(thead,tbody,tfoot) > tr > :is(th,td) { vertical-align: middle; }
 +    .DTCR_clonedTable, .DTCR_pointer { z-index: 1050; pointer-events: none; }
@@ -29,7 +36,7 @@ index dd07cfd..8d0f360 100644
  <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>
  
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..f8c72b1 100644
+index 9fbcc19..f8ac316 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
 @@ -23,6 +23,20 @@ const dateformat = "MMM Do YYYY, HH:mm";
@@ -53,7 +60,7 @@ index 9fbcc19..f8c72b1 100644
  const filters = [
    "client_ip",
    "client_name",
-@@ -132,16 +146,248 @@ function initDateRangePicker(data) {
+@@ -132,16 +146,259 @@ function initDateRangePicker(data) {
    });
  }
  
@@ -194,40 +201,51 @@ index 9fbcc19..f8c72b1 100644
 +  const name = params.get("client_name") || "";
 +  const key = JSON.stringify([ip, name]);
 +  const heading = $("#query-client-heading");
-+  const label = $("#query-client-label");
-+  if (heading.data("client-key") !== key) {
++  const field = $("#query-client-edit");
++  const changed = heading.data("client-key") !== key;
++  if (changed) {
 +    const single = isClientIP(ip) || (!ip && name && utils.validateHostnameDHCP(name));
 +    heading.data("client-key", key).prop("hidden", !single);
-+    $("#query-client-edit").prop("hidden", true);
-+    label.prop("hidden", false).text(ip || name);
++    field.data("original", ip || name).val(ip || name);
++    field[0].setCustomValidity("");
++    $("#query-client-actions").prop("hidden", true);
 +  }
 +  const match = rows.find(row => row.client?.name && (!ip || row.client.ip === ip) &&
 +    (!name || row.client.name.toLowerCase() === name.toLowerCase()));
-+  if (match) label.text(match.client.name);
++  if (match && field.val() === field.data("original") && !field.is(":focus")) {
++    field.data("original", match.client.name).val(match.client.name);
++  }
 +}
 +
-+$("#query-client-label").on("click", function () {
-+  const edit = $("#query-client-edit");
-+  edit.val(this.textContent).data("original", this.textContent);
-+  this.hidden = true;
-+  edit.prop("hidden", false).trigger("focus").trigger("select");
-+});
++function resetClientEdit() {
++  const field = $("#query-client-edit");
++  field.val(field.data("original"));
++  field[0].setCustomValidity("");
++  $("#query-client-actions").prop("hidden", true);
++}
 +
 +$("#query-client-edit").on("input", function () {
 +  this.setCustomValidity("");
-+}).on("blur", function () {
-+  this.hidden = true;
-+  $("#query-client-label").prop("hidden", false);
++  $("#query-client-actions").prop("hidden", this.value === $(this).data("original"));
 +}).on("keydown", function (event) {
 +  if (event.isComposing || event.originalEvent?.isComposing) return;
-+  if (event.key !== "Enter" && event.key !== "Escape") return;
-+  event.preventDefault();
-+  const value = this.value.trim();
-+  if (event.key === "Enter" && value !== $(this).data("original")) {
++  if (event.key === "Escape" || event.key === "Enter") {
++    event.preventDefault();
++    if (event.key === "Escape") resetClientEdit();
++    else applyClientEdit();
++  }
++});
++$("#query-client-apply").on("click", applyClientEdit);
++$("#query-client-cancel").on("click", resetClientEdit);
++
++function applyClientEdit() {
++  const field = document.getElementById("query-client-edit");
++  const value = field.value.trim();
++  if (value !== $(field).data("original")) {
 +    const byIP = isClientIP(value);
 +    if (!byIP && (!utils.validateHostnameDHCP(value) || /^[\d.]+$/.test(value))) {
-+      this.setCustomValidity("Enter one hostname or IP address.");
-+      this.reportValidity();
++      field.setCustomValidity("Enter one hostname or IP address.");
++      field.reportValidity();
 +      return;
 +    }
 +    const url = new URL(window.location.href);
@@ -245,9 +263,9 @@ index 9fbcc19..f8c72b1 100644
 +    window.history.replaceState(window.history.state, "", url);
 +    refreshTable();
 +  }
-+  this.blur();
-+  $("#query-client-label").trigger("focus");
-+});
++  resetClientEdit();
++  field.blur();
++}
 +
 +// FTL and the grouped comparator use the stock column order.
 +const queryFields = ["time", "status", "type", "domain", "client.ip", "reply.time", null];
@@ -310,7 +328,7 @@ index 9fbcc19..f8c72b1 100644
  }
  
  function parseQueryStatus(data) {
-@@ -214,6 +460,7 @@ function parseQueryStatus(data) {
+@@ -214,6 +471,7 @@ function parseQueryStatus(data) {
        buttontext = "";
        blocked = true;
        break;
@@ -318,7 +336,7 @@ index 9fbcc19..f8c72b1 100644
      case "QUERY_EXTERNAL_BLOCKED_EDE15":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -274,6 +521,7 @@ function parseQueryStatus(data) {
+@@ -274,6 +532,7 @@ function parseQueryStatus(data) {
        buttontext =
          '<button type="button" class="btn btn-default btn-sm text-red btn-blacklist"><i class="fa fa-ban"></i> Deny</button>';
        break;
@@ -326,7 +344,7 @@ index 9fbcc19..f8c72b1 100644
      case "SPECIAL_DOMAIN":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -446,7 +694,7 @@ function formatInfo(data) {
+@@ -446,7 +705,7 @@ function formatInfo(data) {
    return (
      '<div class="row">' +
      divStart +
@@ -335,7 +353,7 @@ index 9fbcc19..f8c72b1 100644
      moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
      "</div>" +
      clientInfo +
-@@ -462,45 +710,16 @@ function formatInfo(data) {
+@@ -462,45 +721,16 @@ function formatInfo(data) {
    );
  }
  
@@ -390,7 +408,7 @@ index 9fbcc19..f8c72b1 100644
  }
  
  function parseFilters() {
-@@ -525,7 +744,7 @@ function getAPIURL(filters) {
+@@ -525,7 +755,7 @@ function getAPIURL(filters) {
    // up the database lookups notably on slow devices. The API accepts timestamps
    // in seconds since epoch
    if (from > beginningOfTime) apiurl += "&from=" + from;
@@ -399,7 +417,7 @@ index 9fbcc19..f8c72b1 100644
  
    if ($("#disk").prop("checked")) apiurl += "&disk=true";
  
-@@ -554,7 +773,9 @@ $(() => {
+@@ -554,7 +784,9 @@ $(() => {
    const GETDict = utils.parseQueryString();
  
    for (const [sel, element] of Object.entries(filters)) {
@@ -410,7 +428,7 @@ index 9fbcc19..f8c72b1 100644
        width: "100%",
        tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
        placeholder: "Select...",
-@@ -562,8 +783,8 @@ $(() => {
+@@ -562,8 +794,8 @@ $(() => {
      });
    }
  
@@ -421,7 +439,7 @@ index 9fbcc19..f8c72b1 100644
  
    if ("from" in GETDict) {
      from = Number(GETDict.from);
-@@ -573,30 +794,10 @@ $(() => {
+@@ -573,30 +805,10 @@ $(() => {
      until = Number(GETDict.until);
    }
  
@@ -455,7 +473,7 @@ index 9fbcc19..f8c72b1 100644
      serverSide: true,
      dom:
        "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
-@@ -609,8 +810,9 @@ $(() => {
+@@ -609,8 +821,9 @@ $(() => {
        {
          data: "time",
          width: "10%",
@@ -466,7 +484,7 @@ index 9fbcc19..f8c72b1 100644
              return moment.unix(data).format("Y-MM-DD [<br class='hidden-lg'>]HH:mm:ss z");
            }
  
-@@ -618,12 +820,19 @@ $(() => {
+@@ -618,12 +831,19 @@ $(() => {
          },
          searchable: false,
        },
@@ -491,7 +509,7 @@ index 9fbcc19..f8c72b1 100644
      ],
      lengthMenu: [
        [10, 25, 50, 100, 500, 1000],
-@@ -632,7 +841,10 @@ $(() => {
+@@ -632,7 +852,10 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -503,7 +521,7 @@ index 9fbcc19..f8c72b1 100644
      },
      stateLoadCallback() {
        const state = utils.stateLoadCallback("query_log_table");
-@@ -642,9 +854,12 @@ $(() => {
+@@ -642,9 +865,12 @@ $(() => {
      },
      rowCallback(row, data) {
        const querystatus = parseQueryStatus(data);
@@ -518,7 +536,7 @@ index 9fbcc19..f8c72b1 100644
            "<i class='fa fa-fw " +
              querystatus.icon +
              " " +
-@@ -658,14 +873,14 @@ $(() => {
+@@ -658,14 +884,14 @@ $(() => {
        }
  
        // Define row background color
@@ -535,7 +553,7 @@ index 9fbcc19..f8c72b1 100644
          const dnssec = parseDNSSEC(data);
          dnssecIcon =
            '<i class="mr-2 fa fa-fw ' +
-@@ -680,30 +895,32 @@ $(() => {
+@@ -680,30 +906,32 @@ $(() => {
        // Escape HTML in domain
        domain = dnssecIcon + utils.escapeHtml(domain);
  
@@ -578,7 +596,7 @@ index 9fbcc19..f8c72b1 100644
      initComplete() {
        this.api()
          .columns()
-@@ -718,12 +935,15 @@ $(() => {
+@@ -718,12 +946,15 @@ $(() => {
            // Replace footer text with input field for searchable columns
            const input = document.createElement("input");
            input.placeholder = this.footer().textContent;
@@ -597,7 +615,7 @@ index 9fbcc19..f8c72b1 100644
              }
            });
  
-@@ -732,6 +952,8 @@ $(() => {
+@@ -732,6 +963,8 @@ $(() => {
      },
    });
  
@@ -606,7 +624,7 @@ index 9fbcc19..f8c72b1 100644
    // Add event listener for adding domains to the allow-/blocklist
    $("#all-queries tbody").on("click", "button", function (event) {
      const button = $(this);
-@@ -760,6 +982,8 @@ $(() => {
+@@ -760,6 +993,8 @@ $(() => {
        return;
      }
  
@@ -615,7 +633,7 @@ index 9fbcc19..f8c72b1 100644
      if (row.child.isShown()) {
        // This row is already open - close it
        row.child.hide();
-@@ -771,31 +995,65 @@ $(() => {
+@@ -771,31 +1006,65 @@ $(() => {
      }
    });
  
@@ -692,7 +710,7 @@ index 9fbcc19..f8c72b1 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..bd513db 100644
+index 2b7138e..a0d29ef 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -729,7 +747,7 @@ index 2b7138e..bd513db 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.9";
++  const version = "1.1.10";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;

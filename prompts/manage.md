@@ -118,7 +118,7 @@ Ask me whether to use it.
 
 Ask before interrupting DNS or DHCP, replacing a running instance, or
 publishing an image outside my deployment. Deploy the verified changes
-once. Preserve file permissions, ownership, and links. Check the served
+once. Preserve file permissions, ownership, and links. Give changed JavaScript files a fresh modification time. Verify the rendered script URLs change so existing browsers load the update. Check the served
 files on each replica. If deployment fails partway, restore the previous
 files or revision. Verify recovery.
 
