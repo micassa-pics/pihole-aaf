@@ -26,7 +26,7 @@ In **Expiration**, the outline represents the configured lease time. The fill sh
 
 Drag a column header in either DHCP table to move it. Each table remembers its own layout in your browser.
 
-The **Static DHCP configuration** heading shows the configured gateway address. Pi-hole reads this address from its DHCP router setting. The table pins the router above all reservations, even when you search, sort, or change pages. Look for the network icon and **Gateway** in the Groups column. The row has a Query Log link. It has no delete button.
+The **Static DHCP configuration** heading shows the configured gateway address. Pi-hole reads this address from its DHCP router setting. The table pins the router above all reservations, even when you search, sort, or change pages. Look for the network icon and **Gateway** in the Groups column. The hostname cell shows the name Pi-hole knows for the gateway, or its hardware vendor when available. Tap it to save a display label for this browser. Clear the label and save to restore the detected value. The row has a Query Log link. It has no delete button.
 
 The collapsed **DHCP Settings** heading shows the current address range. In both tables, **Expiration** sits beside **Hostname**. **MAC** and **CID** start collapsed. The screenshots keep both headings visible and leave the cells below them empty. Tap either header label to show or hide that column in both tables. Corresponding columns have the same width.
 

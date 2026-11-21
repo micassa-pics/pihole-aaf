@@ -13,7 +13,7 @@ h1 { font-size: 1.5rem; } li { margin-block: .6rem; }
 <p id="status"></p>
 <a href="https://github.com/micassa-pics/pihole-awesome-a-fyer/blob/main/prompts/manage.md">Open the update prompt</a>
 <script>
-const latest = "1.1.13";
+const latest = "1.1.14";
 const installed = new URLSearchParams(location.hash.slice(1));
 const pages = [["dashboard", "Dashboard"], ["dhcp", "DHCP"], ["queries", "Query Log"]].filter(([key]) => installed.has(key));
 const older = pages.filter(([key]) => {
