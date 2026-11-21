@@ -4,6 +4,7 @@ Copy the entire block into your AI assistant. Choose **Check only** to compare v
 
 ```text
 First ask me which Pi-hole pages I want: Dashboard, DHCP, Query Log, or any combination.
+Also ask if I want the optional sidebar group picker. If selected, follow group-pause/README.md from the same verified commit. Verify the worker and loader separately. Use a new group with no clients or rules to test expiry.
 Then ask which action I want: Check only, Install/update, or Undo.
 Use any choice I already gave you. Wait for both choices before you
 download a patch or connect to a device. Work only on the selected pages.

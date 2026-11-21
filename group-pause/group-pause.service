@@ -1,0 +1,16 @@
+[Unit]
+Description=Restore timed Pi-hole group pauses
+After=docker.service
+
+[Service]
+Type=simple
+StateDirectory=pihole-group-pause
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/lib/pihole-group-pause/worker.py /opt/pihole/config/gravity.db /var/lib/pihole-group-pause/timers.sqlite /usr/bin/docker exec pihole pihole reloadlists
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

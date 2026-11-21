@@ -1,4 +1,4 @@
-**These patches change only the Pi-hole web UI. They use Pi-hole’s existing API when you save changes. I tweaked the layout to suit how I use Pi-hole. Maybe you’ll find it useful too.**
+**The page patches change only the Pi-hole web UI. They use Pi-hole’s existing API when you save changes. I tweaked the layout to suit how I use Pi-hole. Maybe you’ll find it useful too.**
 
 # Pi-hole awesome-a-fyer
 
@@ -9,6 +9,11 @@ Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface.
 - Paste the [setup prompt](prompts/manage.md) into your AI assistant.
 - Choose the pages and action. Enter your Pi-hole address and SSH command.
 - After a Pi-hole update, run **Check only** to see if you need to reapply the patches.
+
+## Optional group pause
+
+- Open **Disable Blocking** in the left sidebar. Check the groups, then choose a time below.
+- **All devices** uses Pi-hole’s built-in timer. Selected groups use the same time controls and a small host service. [Setup and undo](group-pause/README.md)
 
 ## awesome-a-fyer the dashboard
 
