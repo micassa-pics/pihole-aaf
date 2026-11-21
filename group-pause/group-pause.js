@@ -46,6 +46,8 @@
     const names = new Map();
     function add(raw, name) {
       const ip = address(raw);
+      // Keep an existing pause reachable until the user resumes it.
+      if ((ip === "::1" || ip.startsWith("127.")) && !paused.has(ip)) return;
       if (ip && !names.get(ip)) names.set(ip, name && name !== "*" ? name : "");
     }
     for (const d of network.devices || []) for (const entry of d.ips || []) add(entry.ip, entry.name);

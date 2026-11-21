@@ -1,6 +1,6 @@
 # Pause blocking for selected groups
 
-Open **Disable Blocking** in the left sidebar. Check one or more groups under **Apply to**. For one address, select **One device** instead. The dropdown lists known IPv4 and IPv6 addresses in numeric order and includes hostnames where available. Select a time below the list. **Custom time** uses the existing seconds and minutes dialog. Select **All devices** for Pi-hole’s normal network-wide pause.
+Open **Disable Blocking** in the left sidebar. Check one or more groups under **Apply to**. For one address, select **One device** instead. The dropdown lists known IPv4 and IPv6 addresses in numeric order and includes hostnames where available. The picker hides loopback addresses unless one has a pause you can resume. Select a time below the list. **Custom time** uses the existing seconds and minutes dialog. Select **All devices** for Pi-hole’s normal network-wide pause.
 
 The host service restores the selected groups after the timer expires. You can close the browser. If the host restarts, the service restores overdue groups when it starts again. **Indefinitely** keeps a group disabled until you enable it on the Groups page. Rules from other enabled groups still apply to their members.
 
