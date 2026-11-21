@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..d81e50f 100644
+index af99c0a..ad08e8b 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..d81e50f 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.18";
++  const version = "1.1.19";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -93,7 +93,7 @@ index af99c0a..d81e50f 100644
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..06e122d 100644
+index 27adb7b..51953f6 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,141 @@
@@ -1093,8 +1093,8 @@ index 27adb7b..06e122d 100644
 +    }
 +    updatePendingDHCP();
 +  }
-+}
-+
+ }
+ 
 +function saveHosts(manual = false) {
 +  const field = document.getElementById("dhcp-hosts");
 +  const stored = hostLines(savedDHCPValues.get(field));
@@ -1137,8 +1137,8 @@ index 27adb7b..06e122d 100644
 +      throw error;
 +    }
 +  });
- }
- 
++}
++
 +$(document).on("input change", "[data-key='dhcp.start'], [data-key='dhcp.end']", updateLeaseRangeSummary);
 +$(document).on("change", "[data-key^='dhcp.']", function () {
 +  if (!savedDHCPValues || this.disabled || this.readOnly || savingDHCP) return;
@@ -1564,7 +1564,7 @@ index 27adb7b..06e122d 100644
      const idx = row.attr("data-row");
      const saveBtn = $(
        '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
-@@ -445,80 +1389,174 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +1389,178 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
@@ -1585,6 +1585,10 @@ index 27adb7b..06e122d 100644
    }
  });
  
++function staticHostnameLabel(name) {
++  return $("<span>", { class: "static-hostname-label", text: name, title: name });
++}
++
 +function staticReservationCells(parsed, displayName = parsed.hostname) {
 +  const cell = staticHostsReadOnly ? "<td></td>" : '<td contenteditable="true"></td>';
 +
@@ -1599,7 +1603,7 @@ index 27adb7b..06e122d 100644
 +    tdIpaddr.addClass("table-danger");
 +  }
 +
-+  const tdHostname = $(cell).addClass("static-hostname").text(displayName);
++  const tdHostname = $(cell).addClass("static-hostname").append(staticHostnameLabel(displayName));
 +  if (parsed.hostname && !utils.validateHostnameDHCP(parsed.hostname)) {
 +    tdHostname.addClass("table-danger");
 +  }
@@ -1792,7 +1796,7 @@ index 27adb7b..06e122d 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +1569,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1573,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1809,7 +1813,7 @@ index 27adb7b..06e122d 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1636,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1640,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1818,7 +1822,7 @@ index 27adb7b..06e122d 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1645,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1649,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  
@@ -1850,7 +1854,7 @@ index 27adb7b..06e122d 100644
    }
 +  const close = () => {
 +    cell.find("input").off("blur");
-+    cell.text(displayName).attr("contenteditable", "true");
++    cell.empty().append(staticHostnameLabel(displayName)).attr("contenteditable", "true");
 +  };
 +  editHostname(cell, previous, (name, input) => {
 +    if (name === previous) { close(); return; }
@@ -1871,10 +1875,10 @@ index 27adb7b..06e122d 100644
 +  }, close);
  });
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..916b88f 100644
+index 1cbc347..8202104 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -12,14 +12,139 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -12,14 +12,142 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  -- Page title and level selector
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
@@ -1950,7 +1954,10 @@ index 1cbc347..916b88f 100644
 +    .lease-vendor-heading { --column-width: var(--vendor-width); }
 +    .vendor-collapsed:is(#DHCPLeasesTable,#StaticDHCPTable) { --vendor-width: 38px; }
 +    .vendor-collapsed .lease-vendor-value { display: none; }
-+    .lease-vendor-cell { overflow: hidden; text-overflow: ellipsis; }
++    .lease-vendor-cell, #StaticDHCPTable td.static-hostname, .static-hostname-label {
++        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
++    }
++    .static-hostname-label { display: block; }
 +    .lease-mac-heading { --column-width: var(--mac-width); }
 +    .lease-client-heading { --column-width: var(--cid-width); }
 +    thead .lease-activity { --column-width: 137px; }
@@ -2017,7 +2024,7 @@ index 1cbc347..916b88f 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +209,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +212,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2035,7 +2042,7 @@ index 1cbc347..916b88f 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,30 +256,32 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,30 +259,32 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2079,7 +2086,7 @@ index 1cbc347..916b88f 100644
                                  </tr>
                              </thead>
                              <tbody>
-@@ -163,33 +290,46 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,33 +293,46 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2145,7 +2152,7 @@ index 1cbc347..916b88f 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +350,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +353,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -2154,7 +2161,7 @@ index 1cbc347..916b88f 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,13 +391,24 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,13 +394,24 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
