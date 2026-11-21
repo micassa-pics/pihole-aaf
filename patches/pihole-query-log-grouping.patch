@@ -710,7 +710,7 @@ index 9fbcc19..f8ac316 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..a0d29ef 100644
+index 2b7138e..f51ef02 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -747,7 +747,7 @@ index 2b7138e..a0d29ef 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.10";
++  const version = "1.1.11";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;

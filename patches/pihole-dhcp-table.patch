@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..254d257 100644
+index af99c0a..a552775 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..254d257 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.10";
++  const version = "1.1.11";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -93,7 +93,7 @@ index af99c0a..254d257 100644
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..eea3388 100644
+index 27adb7b..3037f4e 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,99 @@
@@ -928,8 +928,8 @@ index 27adb7b..eea3388 100644
    // Trigger input to update the table
    $("#dhcp-hosts").trigger("input");
 +  if (initialLoad && staticLeaseKeys.size === 0) dhcpLeasesTable?.draw(false);
- }
- 
++}
++
 +let savedDHCPValues;
 +
 +function dhcpValue(field) {
@@ -1045,8 +1045,8 @@ index 27adb7b..eea3388 100644
 +      throw error;
 +    }
 +  });
-+}
-+
+ }
+ 
 +$(document).on("input change", "[data-key='dhcp.start'], [data-key='dhcp.end']", updateLeaseRangeSummary);
 +$(document).on("change", "[data-key^='dhcp.']", function () {
 +  if (!savedDHCPValues || this.disabled || this.readOnly || savingDHCP) return;
@@ -1466,7 +1466,7 @@ index 27adb7b..eea3388 100644
      const idx = row.attr("data-row");
      const saveBtn = $(
        '<button type="button" class="btn btn-success btn-xs save-static-row"><span class="fa fa-fw fa-check"></span></button>'
-@@ -445,80 +1293,138 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
+@@ -445,80 +1293,141 @@ $(document).on("focus input", "#StaticDHCPTable td[contenteditable]", function (
        .attr("title", "Cancel changes and restore original values")
        .attr("data-toggle", "tooltip");
  
@@ -1528,7 +1528,10 @@ index 27adb7b..eea3388 100644
 +  const row = $("<tr>").addClass("dhcp-gateway-row").append(
 +    $("<td>").text(profile.ip), hostname,
 +    $("<td>").append($("<span>").addClass("lease-mac-value").text(profile.hwaddr)),
-+    $('<td class="actions">').append(queryLogLink(profile.ip))
++    $('<td class="actions">').append(
++      queryLogLink(profile.ip), " ",
++      $('<span class="btn btn-xs invisible" aria-hidden="true"><span class="fa fa-fw"></span></span>')
++    )
 +  );
 +  orderStaticCells(row, profile);
 +  row.find(".lease-groups").empty().append('<i class="fas fa-network-wired" aria-hidden="true"></i>', " Gateway");
@@ -1658,7 +1661,7 @@ index 27adb7b..eea3388 100644
  $(document).on("click", ".copy-to-static", function () {
    // Refuse while a static row is being edited, to not discard unsaved changes
    if ($("#StaticDHCPTable .save-static-row").length > 0) {
-@@ -531,13 +1437,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1440,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1675,7 +1678,7 @@ index 27adb7b..eea3388 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1504,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1507,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1684,7 +1687,7 @@ index 27adb7b..eea3388 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1513,38 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1516,38 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  
