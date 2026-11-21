@@ -6,7 +6,7 @@ Open **Query Log** from the Pi-hole sidebar. If you also use the DHCP patch, sel
 
 Drag a Query Log header to move its column. Your browser remembers the layout for both individual and grouped queries.
 
-When you filter by one client, its hostname appears in bold beside **Recent Queries**.
+When you filter by one IP, **Recent Queries** shows the hostname or the IP in bold. Tap it to edit the client filter. Enter another hostname or IP and press **Enter**. Press **Esc** to cancel.
 
 Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
 
