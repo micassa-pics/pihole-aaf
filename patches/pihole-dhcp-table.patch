@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..cafa47c 100644
+index af99c0a..1f35d95 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..cafa47c 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.25";
++  const version = "1.1.26";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -93,7 +93,7 @@ index af99c0a..cafa47c 100644
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..5b1c313 100644
+index 27adb7b..91555aa 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
 @@ -9,8 +9,141 @@
@@ -240,7 +240,7 @@ index 27adb7b..5b1c313 100644
  
  // DHCP leases tooltips
  $("body").tooltip({ selector: '[data-toggle="tooltip"]', container: "body" });
-@@ -22,121 +155,324 @@ function renderHostnameCLID(data, type) {
+@@ -22,121 +155,339 @@ function renderHostnameCLID(data, type) {
        return "<em>---</em>";
      }
  
@@ -311,10 +311,15 @@ index 27adb7b..5b1c313 100644
 +
 +let leaseGroupData = null;
 +
++const internalPauseGroup = name => /^awesome-a-fyer-(?:pause|device|done)-/i.test(name);
++
 +async function readLeaseGroups() {
 +  const api = document.body.dataset.apiurl;
-+  const [groups, clients] = await Promise.all([$.getJSON(api + "/groups"), $.getJSON(api + "/clients")]);
-+  return { groups: groups.groups, clients: clients.clients };
++  const [groups, clients, resolver] = await Promise.all([
++    $.getJSON(api + "/groups"), $.getJSON(api + "/clients"),
++    $.getJSON(api + "/config/resolver").catch(() => null),
++  ]);
++  return { groups: groups.groups, clients: clients.clients, resolver: resolver?.config?.resolver };
 +}
 +
 +// Active DHCPv4 leases can inherit a subnet, hardware address, or hostname rule.
@@ -335,7 +340,11 @@ index 27adb7b..5b1c313 100644
 +    }
 +  }
 +  const match = key => key && data.clients.find(c => c.client.toLowerCase() === key.toLowerCase());
-+  best ||= match(lease.ip) || match(lease.hwaddr) || match(lease.name);
++  best ||= match(lease.ip) ||
++    (data.resolver?.macNames === true && match(lease.hwaddr)) ||
++    (data.resolver?.resolveIPv4 === true && match(dnsClientNames.get(lease.ip)));
++  if (best?.groups.some(id => data.groups.some(g => g.id === id && g.name.startsWith("awesome-a-fyer-device-"))))
++    return { paused: true };
 +  if (best) return { ids: best.groups, rule: best, exact: best.client === lease.ip || bits === 32 };
 +  // The lease API does not report the interface on which DNS requests arrive.
 +  return { ids: data.clients.some(c => c.client.startsWith(":")) ? null : [0] };
@@ -347,12 +356,13 @@ index 27adb7b..5b1c313 100644
 +
 +function renderLeaseGroups(lease, type) {
 +  if (!leaseGroupData) return "Unavailable";
-+  const { ids } = leaseMembership(lease, leaseGroupData);
++  const { ids, paused, rule, exact } = leaseMembership(lease, leaseGroupData);
++  if (paused) return "Paused";
 +  const names = ids?.map(id => {
 +    const group = leaseGroupData.groups.find(g => g.id === id);
 +    return group ? groupLabel(group) : "#" + id;
 +  }).join(", ");
-+  const label = ids ? names || "No groups" : "Check interface rule";
++  const label = (ids ? names || "No groups" : "Check interface rule") + (rule && !exact ? " (inferred)" : "");
 +  return type === "display" ? '<button type="button" class="btn btn-default btn-xs edit-lease-groups" title="Edit groups">' +
 +    utils.escapeHtml(label) + '</button>' : label;
 +}
@@ -409,7 +419,7 @@ index 27adb7b..5b1c313 100644
 +    const status = editor.find("[role=status]");
 +    const nameField = editor.find(".lease-group-name");
 +    const options = editor.find(".lease-group-options");
-+    for (const group of leaseGroupData.groups) {
++    for (const group of leaseGroupData.groups.filter(g => !internalPauseGroup(g.name))) {
 +      const input = $("<input>", { type: "checkbox", value: group.id }).prop("checked", original.ids?.includes(group.id) || false);
 +      $("<div>").append($("<label>").append(input, document.createTextNode(" " + groupLabel(group)))).appendTo(options);
 +    }
@@ -428,6 +438,11 @@ index 27adb7b..5b1c313 100644
 +      busy = true;
 +      const ids = options.find("input:checked").map((_, el) => Number(el.value)).get();
 +      const name = nameField.val().trim();
++      if (internalPauseGroup(name)) {
++        status.text("Use a different name. Pi-hole pause reserves this prefix.");
++        busy = false;
++        return;
++      }
 +      editor.find(":input").prop("disabled", true);
 +      status.text("Saving...");
 +      let created = false;
@@ -435,7 +450,7 @@ index 27adb7b..5b1c313 100644
 +        const current = await readLeaseGroups();
 +        const membership = leaseMembership(lease, current);
 +        if (JSON.stringify(membership) !== JSON.stringify(original) ||
-+            ids.some(id => !current.groups.some(g => g.id === id))) {
++            ids.some(id => !current.groups.some(g => g.id === id && !internalPauseGroup(g.name)))) {
 +          close();
 +          refresh(current);
 +          utils.showAlert("warning", "", "Group settings changed", "Reopen the row to review its groups.");
@@ -470,7 +485,7 @@ index 27adb7b..5b1c313 100644
 +      } catch (error) {
 +        const message = error.message || error.responseJSON?.error?.message || "Could not read or save client groups.";
 +        if (openButton) status.text((created ? "Group created. " : "") + message);
-+        else utils.showAlert("error", "", "Reload DHCP to refresh groups", utils.escapeHtml(message));
++        else utils.showAlert("error", "", "Reload DHCP to refresh groups", message);
 +      } finally {
 +        busy = false;
 +        editor.find(":input").prop("disabled", false);
@@ -644,7 +659,7 @@ index 27adb7b..5b1c313 100644
      lengthMenu: [
        [10, 25, 50, 100, -1],
        [10, 25, 50, 100, "All"],
-@@ -145,8 +481,12 @@ $(() => {
+@@ -145,8 +496,12 @@ $(() => {
        emptyTable: "No DHCP leases found.",
      },
      stateSave: true,
@@ -657,7 +672,7 @@ index 27adb7b..5b1c313 100644
        utils.stateSaveCallback("dhcp-leases-table", data);
      },
      stateLoadCallback() {
-@@ -156,79 +496,496 @@ $(() => {
+@@ -156,79 +511,512 @@ $(() => {
          return null;
        }
  
@@ -1060,16 +1075,32 @@ index 27adb7b..5b1c313 100644
 +}
 +
 +async function writeDHCP(key, value) {
-+  // Hosts are stored as one array. Detect edits made by another admin before replacing it.
-+  if (key === "hosts") {
-+    const latest = await $.getJSON(document.body.dataset.apiurl + "/config/dhcp?detailed=true");
-+    if (latest.config.dhcp.hosts.value.join("\n") !== savedDHCPValues.get(document.getElementById("dhcp-hosts")))
-+      throw new Error("DHCP reservations changed on the server. Reload the page before editing.");
++  const api = document.body.dataset.apiurl;
++  if (key !== "hosts") {
++    await $.ajax({ url: api + "/config", method: "PATCH", contentType: "application/json",
++      data: JSON.stringify({ config: { dhcp: { [key]: value } } }) });
++    return;
 +  }
-+  await $.ajax({
-+    url: document.body.dataset.apiurl + "/config", method: "PATCH",
-+    contentType: "application/json", data: JSON.stringify({ config: { dhcp: { [key]: value } } }),
-+  });
++  const read = async () => (await $.getJSON(api + "/config/dhcp?detailed=true")).config.dhcp.hosts.value;
++  const before = savedDHCPValues.get(document.getElementById("dhcp-hosts"));
++  const latest = await read();
++  if (latest.join("\n") !== before)
++    throw new Error("DHCP reservations changed on the server. Reload the page before editing.");
++  const added = visibleHosts(value, latest);
++  const removed = visibleHosts(latest, value);
++  // A single item can be changed under the server's config lock. Keep a rename
++  // or a batch atomic with one verified replacement.
++  if (added.length + removed.length === 1 && new Set(latest).size === latest.length &&
++      new Set(value).size === value.length &&
++      (removed.length || value.at(-1) === added[0])) {
++    await $.ajax({ url: api + "/config/dhcp/hosts/" + encodeURIComponent((added[0] || removed[0])),
++      method: added.length ? "PUT" : "DELETE" });
++  } else {
++    await $.ajax({ url: api + "/config", method: "PATCH", contentType: "application/json",
++      data: JSON.stringify({ config: { dhcp: { hosts: value } } }) });
++  }
++  if ((await read()).join("\n") !== value.join("\n"))
++    throw new Error("The server has different reservations after saving. Reload the page to review them.");
 +}
 +
 +async function withDHCPSave(action) {
@@ -1201,7 +1232,7 @@ index 27adb7b..5b1c313 100644
      })
      .fail(data => {
        apiFailure(data);
-@@ -237,7 +994,7 @@ function processDHCPConfig() {
+@@ -237,7 +1025,7 @@ function processDHCPConfig() {
  
  function parseStaticDHCPLine(line) {
    // Accepts: [hwaddr][,ipaddr][,hostname] (all optional, comma-separated, no advanced tokens)
@@ -1210,7 +1241,7 @@ index 27adb7b..5b1c313 100644
  
    // If the line is empty, return an object with empty fields
    if (!line.trim())
-@@ -264,7 +1021,7 @@ function parseStaticDHCPLine(line) {
+@@ -264,7 +1052,7 @@ function parseStaticDHCPLine(line) {
      // Advanced if the part is "infinite", "ignore" or a lease time value
      if (/^(infinite|ignore|\d+(w|W|d|D|h|H|m|M|s|S))$/u.test(part)) return "advanced";
  
@@ -1219,7 +1250,7 @@ index 27adb7b..5b1c313 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +1057,50 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +1088,50 @@ function parseStaticDHCPLine(line) {
    };
  }
  
@@ -1276,7 +1307,7 @@ index 27adb7b..5b1c313 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,33 +1113,42 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,33 +1144,42 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1337,7 +1368,7 @@ index 27adb7b..5b1c313 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -369,16 +1168,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -369,16 +1199,15 @@ $(document).on("click", ".cancel-static-row", function () {
    // Trigger "blur" event to remove highlight colors and titles from all cells on this row
    row.find(".static-hwaddr, .static-ipaddr, .static-hostname").blur();
  
@@ -1360,7 +1391,7 @@ index 27adb7b..5b1c313 100644
    }
  });
  
-@@ -386,6 +1184,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +1215,15 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1376,7 +1407,7 @@ index 27adb7b..5b1c313 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,135 +1200,373 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,135 +1231,373 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -1607,11 +1638,11 @@ index 27adb7b..5b1c313 100644
 +    if (row.hasClass("static-reservation-draft")) {
 +      cancelBtn.attr("aria-label", "Cancel").attr("title", "Cancel reservation");
 +    }
-+
-+    row.find("td.actions").prepend(cancelBtn, " ");
  
 -    // Disable the textarea to avoid losing unsaved changes to the table
 -    $("#dhcp-hosts").prop("disabled", true);
++    row.find("td.actions").prepend(cancelBtn, " ");
++
 +    // Keep the draft visible until it is confirmed or canceled.
 +    setStaticDHCPEditing(true);
    }
@@ -1838,7 +1869,7 @@ index 27adb7b..5b1c313 100644
      utils.showAlert(
        "warning",
        "",
-@@ -531,13 +1576,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1607,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1855,7 +1886,7 @@ index 27adb7b..5b1c313 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1643,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1674,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1864,7 +1895,7 @@ index 27adb7b..5b1c313 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1652,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1683,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  

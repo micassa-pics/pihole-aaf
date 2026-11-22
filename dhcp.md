@@ -18,7 +18,11 @@ Tap a MAC address in either DHCP table to copy it. **Copied** appears briefly. T
 
 Long client IDs appear in a tinted, read-only field. Tap once to copy the full ID. **Copied** appears briefly when the copy succeeds. If the browser blocks copying, the ID stays selected for manual copying.
 
-Under **Currently active DHCP leases**, tap **Groups** in the far-left cell of a lease row to edit its membership. Select existing groups or enter a group name. Choose **Save groups** to assign them to that IP. Pi-hole creates the named group if it does not exist. The change takes effect separately from **Save & Apply**. If another device later gets this IP, it uses the same groups. If the lease could inherit an interface rule, the table shows **Check interface rule**.
+Tap the group in the far-left cell to edit membership. **Inferred** marks a match based on a subnet, MAC address, or DNS name. If Pi-hole cannot determine the interface rule, the table shows **Check interface rule**. **Paused** marks an active device override. Resume it in the sidebar before editing its groups.
+
+Select existing groups or enter a name. Choose **Save groups** to write an IP rule. Pi-hole creates the named group if it does not exist. The IP rule takes precedence over inherited groups. If DHCP gives the address to another device, that device uses the same rule.
+
+Use one browser session for reservation edits. Refresh if Pi-hole reports a conflict. A single addition or deletion changes just that entry. Renames and batches still use a whole-list update.
 
 Under **Currently active DHCP leases**, tap a hostname to edit it. In either table, press **Enter** or tap outside the field to save the name. Press **Esc** to discard it. A dynamic lease keeps its dynamic address. The DHCP name takes effect when the client renews. Use the manual editor for advanced host rules.
 

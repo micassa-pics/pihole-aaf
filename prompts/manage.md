@@ -4,7 +4,7 @@ Copy the entire block into your AI assistant. Choose **Check only** to compare v
 
 ```text
 First ask me which Pi-hole pages I want: Dashboard, DHCP, Query Log, or any combination.
-Also ask if I want the optional sidebar group picker. If selected, follow group-pause/README.md from the same verified commit. Verify the worker and loader separately. Use a new group with no clients or rules to test expiry.
+Also ask if I want the optional sidebar group picker. Follow group-pause/README.md from the same verified commit for the selected action. Verify the worker and loader separately.
 Then ask which action I want: Check only, Install/update, or Undo.
 Use any choice I already gave you. Wait for both choices before you
 download a patch or connect to a device. Work only on the selected pages.
@@ -92,8 +92,9 @@ Use these checks to identify each patch:
 
 Perform the selected action
 
-- Check only. Report the status and available revision for each selected
-  patch. Include the installed revision if you can identify it. Stop here.
+- Check only. Use reads for the entire run, including the pause service.
+  Report the status and available revision for each selected patch.
+  Include the installed revision if you can identify it. Stop here.
 
 - Install/update. Skip current patches. For an update, reverse the exact
   older patch in staging. Run git apply --check for the latest patch.
@@ -126,17 +127,20 @@ files or revision. Verify recovery.
 Check the result
 
 Open my Admin URL in a fresh browser session. Let me sign in locally.
-Check only the selected pages. Use read-only checks. Cancel any test
-drafts or delete prompts.
+Check only the selected pages. Use read-only checks on the running instance.
+Use a disposable instance or intercept writes for edit and delete tests.
+Only test pause expiry with approval. Use an empty test group and remove it
+after verifying expiry.
 
 - Dashboard install/update. Collapse and expand each heading. Check that the domain totals and both client summaries appear on the right when collapsed.
 
 - DHCP install/update. Check Expert mode and the collapsible headings.
   Test search and sorting in the static table. Collapse the static section.
-  If an active lease has a + button, select it. The static section should
-  open with an editable draft. The checkmark confirms it for Save & Apply.
-  The curved arrow cancels it. A lease with a reservation has no + button.
   Check that the eye opens queries for the selected client.
+  In an isolated edit test, select + beside an active lease. Verify that
+  the static section opens with a New row. Enter or leaving the edited row
+  can save it. Escape cancels the field edit. The curved arrow cancels the
+  draft. Save & Apply runs queued deletions.
 
 - Query Log install/update. Open Query Log from the sidebar. Check Group,
   Count, and Ungroup. Cycle through All, Blocked, and Allowed.

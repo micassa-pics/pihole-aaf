@@ -68,8 +68,10 @@ def restore_device(db, row):
     db.execute("DELETE FROM scheduler.device_timers WHERE ip=?", (ip,))
 
 
-def finish_request(db, name):
-    db.execute("INSERT OR IGNORE INTO scheduler.receipts VALUES(?)", (DONE_PREFIX + name[len(PREFIX):],))
+def finish_request(db, name, now, seconds=0):
+    deadline = now + seconds if seconds else 0
+    db.execute("INSERT OR IGNORE INTO scheduler.receipts(name, changed, deadline) VALUES(?,?,?)",
+               (DONE_PREFIX + name[len(PREFIX):], now, deadline))
 
 
 def process(db, now):
@@ -109,10 +111,10 @@ def process(db, now):
                         row = db.execute("SELECT * FROM scheduler.device_timers WHERE ip=?", (ip,)).fetchone()
                         if row:
                             restore_device(db, row)
-                            finish_request(db, name)
+                            finish_request(db, name, now)
                             changed = True
                     elif pause_device(db, ip, rid, name, now + seconds if seconds else 0):
-                        finish_request(db, name)
+                        finish_request(db, name, now, seconds)
                         changed = True
                         continue
                 db.execute('DELETE FROM "group" WHERE id=?', (rid,))
@@ -120,7 +122,10 @@ def process(db, now):
             targets = req["groups"]
             if not isinstance(targets, list) or not 1 <= len(targets) <= 1024:
                 raise ValueError("Invalid targets")
-            if not all(isinstance(t, dict) and type(t.get("id")) is int and 0 <= t["id"] < 2**63 and isinstance(t.get("name"), str) for t in targets):
+            if not all(isinstance(t, dict) and type(t.get("id")) is int and 0 <= t["id"] < 2**63
+                       and isinstance(t.get("name"), str)
+                       and not t["name"].lower().startswith((PREFIX, DONE_PREFIX, DEVICE_PREFIX))
+                       for t in targets):
                 raise ValueError("Invalid group")
         except (KeyError, ValueError, TypeError, RecursionError):
             db.execute('DELETE FROM "group" WHERE id=?', (rid,))
@@ -134,7 +139,7 @@ def process(db, now):
                     db.execute('UPDATE "group" SET enabled=0 WHERE id=?', (gid,))
                     if seconds:
                         db.execute("INSERT OR REPLACE INTO scheduler.timers VALUES (?,?,?)", (gid, created, now + seconds))
-                finish_request(db, name)
+                finish_request(db, name, now, seconds)
                 changed = True
         db.execute('DELETE FROM "group" WHERE id=?', (rid,))
     if changed:
@@ -149,26 +154,39 @@ def tick(gravity, state, reload_lists):
         db.execute("CREATE TABLE IF NOT EXISTS scheduler.timers (id INTEGER PRIMARY KEY, created INTEGER, deadline INTEGER)")
         db.execute("CREATE TABLE IF NOT EXISTS scheduler.reload_pending (id INTEGER PRIMARY KEY)")
         db.execute("CREATE TABLE IF NOT EXISTS scheduler.device_timers (ip TEXT PRIMARY KEY, cid INTEGER, gid INTEGER, marker TEXT, original_groups TEXT, temporary INTEGER, deadline INTEGER)")
-        db.execute("CREATE TABLE IF NOT EXISTS scheduler.receipts (name TEXT PRIMARY KEY)")
+        db.execute("CREATE TABLE IF NOT EXISTS scheduler.receipts (name TEXT PRIMARY KEY, changed INTEGER, deadline INTEGER)")
+        columns = {column[1] for column in db.execute("PRAGMA scheduler.table_info(receipts)")}
+        if "changed" not in columns:
+            # Upgrade old state. Receipts without a known deadline cannot confirm a pause.
+            db.execute("ALTER TABLE scheduler.receipts ADD COLUMN changed INTEGER")
+            db.execute("ALTER TABLE scheduler.receipts ADD COLUMN deadline INTEGER")
         db.execute("CREATE TABLE IF NOT EXISTS scheduler.client_notes (ip TEXT, comment TEXT, archived INTEGER)")
         queued = db.execute('SELECT 1 FROM "group" WHERE enabled=0 AND name GLOB ? LIMIT 1', (PREFIX + "*",)).fetchone()
-        tracking = db.execute("SELECT 1 FROM scheduler.timers LIMIT 1").fetchone()
+        tracking = db.execute('SELECT 1 FROM scheduler.timers t LEFT JOIN [group] g ON g.id=t.id WHERE t.deadline<=? OR g.id IS NULL OR g.enabled!=0 OR g.date_added!=t.created LIMIT 1', (int(time.time()),)).fetchone()
         due = db.execute("SELECT 1 FROM scheduler.device_timers t LEFT JOIN [group] g ON g.id=t.gid AND g.name=t.marker WHERE (deadline>0 AND deadline<=?) OR g.id IS NULL LIMIT 1", (int(time.time()),)).fetchone()
         if queued or tracking or due:
             db.execute("BEGIN IMMEDIATE")
             process(db, int(time.time()))
             db.commit()
         if db.execute("SELECT 1 FROM scheduler.reload_pending").fetchone():
+            started = time.time()
             if len(reload_lists) == 1 and reload_lists[0].endswith(".sock"):
                 with socket.socket(socket.AF_UNIX) as sock:
-                    sock.settimeout(30)
+                    sock.settimeout(12)
                     sock.connect(reload_lists[0])
                     if sock.makefile("rb").readline(16) != b"OK\n":
                         raise OSError("List reload unconfirmed")
             else:
                 subprocess.run(reload_lists, check=True, timeout=30)
+            completed = time.time()
             db.execute("BEGIN IMMEDIATE")
-            db.execute("INSERT OR IGNORE INTO [group](name,enabled,date_added) SELECT name,0,? FROM scheduler.receipts", (int(time.time()),))
+            for name, changed, deadline in db.execute("SELECT name,changed,deadline FROM scheduler.receipts"):
+                expired = deadline is None or (deadline and completed >= deadline)
+                result = "expired" if expired else "applied"
+                db.execute("INSERT OR IGNORE INTO [group](name,enabled,date_added,description) VALUES(?,0,?,?)",
+                           (name, int(completed), result))
+                logging.info("Pause result=%s changed=%s reload_started=%.3f completed=%.3f deadline=%s",
+                             result, changed, started, completed, deadline)
             db.execute("DELETE FROM scheduler.receipts")
             db.execute("DELETE FROM scheduler.reload_pending")
             db.commit()
@@ -181,11 +199,15 @@ def tick(gravity, state, reload_lists):
 
 
 if __name__ == "__main__":
+    import fcntl
+    logging.basicConfig(level=logging.INFO)
     parser = argparse.ArgumentParser()
     parser.add_argument("gravity", type=Path)
     parser.add_argument("state", type=Path)
     parser.add_argument("reload_lists", nargs="+")
     args = parser.parse_args()
+    lock = args.state.with_suffix(".lock").open("a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     while True:
         try:
             tick(args.gravity, args.state, args.reload_lists)

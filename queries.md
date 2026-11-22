@@ -10,7 +10,7 @@ When you filter by one IP, **Recent Queries** shows the hostname or the IP in bo
 
 Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
 
-The **Time** chart divides the full query range into 24 equal intervals, from oldest to newest. For a six-hour range, each bar covers 15 minutes. For a two-day range, each bar covers two hours. An empty slot means zero queries. Hover over a slot to see its UTC interval and count.
+The **Time** chart divides the query range into 24 equal intervals, from oldest to newest. For a six-hour range, each bar covers 15 minutes. An empty slot means zero queries. Select the chart to read the count for each UTC interval. Start with a short range for large logs. **Cancel load** stops a group calculation.
 
 ![Grouped Recent Queries sorted by Count. The Time chart for calendar.example shows steady activity. The chart for maps.example shows two short bursts.](assets/grouped-query-log.jpg)
 
@@ -19,7 +19,7 @@ In this fictional example, `maple-tablet.test` sent 240 A queries for `calendar.
 ## Filter and inspect results
 
 - Select the button beside **Group** or **Ungroup** to cycle through **All**, **Blocked**, and **Allowed**. Your client filter stays active.
-- Select a group to inspect its latest query. **Mixed** means the queries in that group had different results.
+- Select **Details** to inspect the latest query in a group. **Mixed** means the queries in that group had different results.
 - Select **Refresh** to include newer requests.
 - Select **Ungroup** to see individual requests and their reply times.
 

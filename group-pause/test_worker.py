@@ -102,6 +102,21 @@ class GroupPauseTest(unittest.TestCase):
             self.assertTrue(receipt())
             advance(9082)
             self.assertIsNone(receipt())
+
+            # If the resolver stays busy past the deadline, restore the group
+            # and publish an expired receipt only once the reload succeeds.
+            db.execute("INSERT INTO [group](name,enabled,date_added,description) VALUES(?,0,?,?)",
+                       (worker.PREFIX + token, 9100, json.dumps({"groups":[{"id":2,"name":"Music"}],"seconds":10})))
+            db.commit()
+            for now in (9100, 9111):
+                with patch.object(worker.time, "time", return_value=now), patch.object(worker.subprocess, "run", side_effect=subprocess.CalledProcessError(1, "reload")):
+                    with self.assertRaises(subprocess.CalledProcessError):
+                        worker.tick(gravity, state, ["reload"])
+                self.assertIsNone(receipt())
+            self.assertEqual(db.execute("SELECT enabled FROM [group] WHERE id=2").fetchone(), (1,))
+            advance(9112)
+            self.assertEqual(db.execute("SELECT description FROM [group] WHERE name=?",
+                                        (worker.DONE_PREFIX + token,)).fetchone(), ("expired",))
             db.close()
 
 

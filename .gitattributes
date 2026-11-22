@@ -1,2 +1,6 @@
 *.md text eol=lf
 *.patch -text
+group-pause/*.py text eol=lf
+group-pause/*.service text eol=lf
+group-pause/*.socket text eol=lf
+group-pause/openwrt* text eol=lf

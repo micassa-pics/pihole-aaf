@@ -1,0 +1,3 @@
+#!/bin/sh
+# A socket connection permits exactly one fixed Pi-hole list reload.
+exec /usr/bin/python3 -IB /usr/lib/pihole-pause/reload.py /tmp/docker-log-cache/pihole/application/FTL.log --container pihole

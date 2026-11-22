@@ -161,7 +161,12 @@
       for (let i = 0; i < 60; i++) {
         await new Promise(resolve => setTimeout(resolve, 500));
         const groups = await getGroups();
-        if (!groups.some(g => g.name === donePrefix + token)) continue;
+        const receipt = groups.find(g => g.name === donePrefix + token);
+        if (!receipt) continue;
+        if (receipt.comment === "expired") {
+          status.textContent = "The pause expired before reload confirmation.";
+          return;
+        }
         if (ip) {
           const marker = groups.find(g => g.name.startsWith(devicePrefix) && g.comment === ip);
           if (restore ? !!marker : marker?.name !== devicePrefix + token) throw Error("Could not confirm the change for " + ip + ".");

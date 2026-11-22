@@ -29,7 +29,7 @@ MountAPIVFS=yes
 InaccessiblePaths=-/proc
 BindReadOnlyPaths=/usr /lib /run/group-pause-reload.sock
 BindReadOnlyPaths=-/lib64
-BindPaths=/opt/pihole/config:/gravity
+BindPaths=/opt/pihole/gravity:/gravity
 ReadWritePaths=/gravity /var/lib/pihole-group-pause
 
 [Install]
