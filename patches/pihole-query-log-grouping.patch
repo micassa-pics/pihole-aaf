@@ -1,5 +1,5 @@
 diff --git a/queries.lp b/queries.lp
-index dd07cfd..23ba8af 100644
+index dd07cfd..8463539 100644
 --- a/queries.lp
 +++ b/queries.lp
 @@ -153,7 +153,12 @@ mg.include('scripts/lua/header_authenticated.lp','r')
@@ -31,13 +31,13 @@ index dd07cfd..23ba8af 100644
  <script src="<?=pihole.fileversion('vendor/daterangepicker/daterangepicker.min.js')?>"></script>
 +<style>
 +    body.default-dark #all-queries .btn-blacklist {
-+        background-color: #962e2a;
-+        border-color: #962e2a;
++        background-color: #843331;
++        border-color: #843331;
 +        color: #fff !important;
 +    }
 +    body.default-dark #all-queries .btn-blacklist:is(:hover, :focus, :active) {
-+        background-color: #7e2a26;
-+        border-color: #7e2a26;
++        background-color: #712f2d;
++        border-color: #712f2d;
 +    }
 +    #query-client-edit { display: inline-block; width: 18ch; max-width: 75vw; font-size: 16px; font-weight: bold; vertical-align: middle; }
 +    #query-client-actions { display: inline-block; }
@@ -920,7 +920,7 @@ index 9fbcc19..7f31054 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..250ca6e 100644
+index 2b7138e..d2ca74b 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -957,7 +957,7 @@ index 2b7138e..250ca6e 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.36";
++  const version = "1.1.37";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
