@@ -1,5 +1,5 @@
 diff --git a/queries.lp b/queries.lp
-index dd07cfd..bdbc8f4 100644
+index dd07cfd..8c2bf4f 100644
 --- a/queries.lp
 +++ b/queries.lp
 @@ -153,7 +153,12 @@ mg.include('scripts/lua/header_authenticated.lp','r')
@@ -16,15 +16,16 @@ index dd07cfd..bdbc8f4 100644
                  <div class="pull-right align-click-options">
                      <span><input type="checkbox" id="live"><label for="live">Live update</label></span>
                      <button type="button" id="refresh" class="btn btn-sm btn-info btn-flat">Refresh</button>
-@@ -162,6 +167,7 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -161,7 +166,7 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+             </div>
              <!-- /.box-header -->
              <div class="box-body">
-                 <p>Click on a query log item to obtain additional information for this query.</p>
+-                <p>Click on a query log item to obtain additional information for this query.</p>
 +                <p class="help-block">Use the Domain and Client fields below the table to search. Use Advanced filtering to set a time range.</p>
                  <table id="all-queries" class="table table-striped table-bordered" width="100%">
                      <thead>
                          <tr>
-@@ -198,6 +204,18 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -198,6 +203,18 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  
  <script src="<?=pihole.fileversion('vendor/bootstrap-select/bootstrap-select.min.js')?>"></script>
  <script src="<?=pihole.fileversion('vendor/daterangepicker/daterangepicker.min.js')?>"></script>
@@ -44,7 +45,7 @@ index dd07cfd..bdbc8f4 100644
  <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>
  
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..b7dd42e 100644
+index 9fbcc19..7039b15 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
 @@ -16,6 +16,7 @@ let beginningOfTime = null; // seconds since epoch
@@ -140,7 +141,7 @@ index 9fbcc19..b7dd42e 100644
 +    const scopeClass = ["queries-other", "queries-blocked", "queries-permitted"][queryScope];
 +    range.fill = utils.getCSSval(scopeClass, "background-color");
 +    range.grid = utils.getCSSval("graphs-grid", "background-color");
-   }
++  }
 +  const url = new URL(source.url);
 +  if (grouped) {
 +    const params = url.searchParams;
@@ -151,7 +152,7 @@ index 9fbcc19..b7dd42e 100644
 +    if (range.start < now - 24 * 3600) params.set("disk", "true");
 +    params.set("from", range.start);
 +    params.set("until", range.end);
-+  }
+   }
 +  let page;
 +  let start = 0;
 +  do {
@@ -403,19 +404,121 @@ index 9fbcc19..b7dd42e 100644
      case "SPECIAL_DOMAIN":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -446,7 +724,7 @@ function formatInfo(data) {
-   return (
-     '<div class="row">' +
-     divStart +
--    "Query received on:&nbsp;&nbsp;" +
-+    (data.group ? "Latest matching query:&nbsp;&nbsp;" : "Query received on:&nbsp;&nbsp;") +
-     moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
-     "</div>" +
-     clientInfo +
-@@ -462,45 +740,16 @@ function formatInfo(data) {
-   );
+@@ -351,156 +629,16 @@ function parseDNSSEC(data) {
+   return { text, icon, color };
  }
  
+-function formatInfo(data) {
+-  // Parse Query Status
+-  const dnssec = parseDNSSEC(data);
+-  const queryStatus = parseQueryStatus(data);
+-  const divStart = '<div class="col-xl-2 col-lg-4 col-md-6 col-12 overflow-wrap">';
+-  let statusInfo = "";
+-  if (queryStatus.colorClass !== false) {
+-    statusInfo =
+-      divStart +
+-      "Query Status:&nbsp;&nbsp;" +
+-      '<strong><span class="' +
+-      queryStatus.colorClass +
+-      '">' +
+-      queryStatus.fieldtext +
+-      "</span></strong></div>";
+-  }
+-
+-  let listInfo = "";
+-  if (data.list_id !== null && data.list_id !== -1) {
+-    // Some list matched - add link to search page
+-    const searchLink =
+-      data.domain !== "hidden"
+-        ? `, <a href="search?domain=${encodeURIComponent(queryStatus.isCNAME ? data.cname : data.domain)}" target="_blank">search lists</a>`
+-        : "";
+-    listInfo = `${divStart}Query was ${queryStatus.matchText}${searchLink}</div>`;
+-  }
+-
+-  let cnameInfo = "";
+-  if (queryStatus.isCNAME) {
+-    cnameInfo =
+-      divStart +
+-      "Query was blocked during CNAME inspection of&nbsp;&nbsp;" +
+-      utils.escapeHtml(data.cname) +
+-      "</div>";
+-  }
+-
+-  // Show TTL if applicable
+-  let ttlInfo = "";
+-  if (data.ttl > 0) {
+-    ttlInfo =
+-      divStart +
+-      "Time-to-live (TTL):&nbsp;&nbsp;" +
+-      moment.duration(data.ttl, "s").humanize() +
+-      " (" +
+-      data.ttl +
+-      "s)</div>";
+-  }
+-
+-  // Show client information, show hostname only if available
+-  const ipInfo =
+-    data.client.name !== null && data.client.name.length > 0
+-      ? utils.escapeHtml(data.client.name) + " (" + utils.escapeHtml(data.client.ip) + ")"
+-      : utils.escapeHtml(data.client.ip);
+-  const clientInfo = divStart + "Client:&nbsp;&nbsp;<strong>" + ipInfo + "</strong></div>";
+-
+-  // Show DNSSEC status if applicable
+-  let dnssecInfo = "";
+-  if (dnssec.color !== "") {
+-    dnssecInfo =
+-      divStart +
+-      'DNSSEC status:&nbsp;&nbsp;<strong><span class="' +
+-      dnssec.color +
+-      '">' +
+-      dnssec.text +
+-      "</span></strong></div>";
+-  }
+-
+-  // Show long-term database information if applicable
+-  let dbInfo = "";
+-  if (data.dbid !== false) {
+-    dbInfo = divStart + "Database ID:&nbsp;&nbsp;" + data.id + "</div>";
+-  }
+-
+-  // Always show reply info, add reply delay if applicable
+-  let replyInfo = "";
+-  replyInfo =
+-    data.reply.type !== "UNKNOWN"
+-      ? divStart + `Reply:&nbsp;&nbsp;${utils.escapeHtml(data.reply.type)}</div>`
+-      : divStart + "Reply:&nbsp;&nbsp;No reply received</div>";
+-
+-  // Show extended DNS error if applicable
+-  let edeInfo = "";
+-  if (data.ede !== null && data.ede.text !== null) {
+-    edeInfo = divStart + "Extended DNS error:&nbsp;&nbsp;<strong";
+-    if (dnssec.color !== "") {
+-      edeInfo += ' class="' + dnssec.color + '"';
+-    }
+-
+-    edeInfo += ">" + utils.escapeHtml(data.ede.text) + "</strong></div>";
+-  }
+-
+-  // Compile extra info for displaying
+-  return (
+-    '<div class="row">' +
+-    divStart +
+-    "Query received on:&nbsp;&nbsp;" +
+-    moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
+-    "</div>" +
+-    clientInfo +
+-    dnssecInfo +
+-    edeInfo +
+-    statusInfo +
+-    cnameInfo +
+-    listInfo +
+-    ttlInfo +
+-    replyInfo +
+-    dbInfo +
+-    "</div>"
+-  );
+-}
+-
 -function addSelectSuggestion(name, dict, data) {
 -  const obj = $("#" + name + "_filter");
 -  let value = "";
@@ -467,7 +570,7 @@ index 9fbcc19..b7dd42e 100644
  }
  
  function parseFilters() {
-@@ -515,17 +764,15 @@ function filterOn(param, dict) {
+@@ -515,17 +653,15 @@ function filterOn(param, dict) {
  function getAPIURL(filters) {
    let apiurl = document.body.dataset.apiurl + "/queries?";
    for (const [key, filter] of Object.entries(filters)) {
@@ -489,7 +592,7 @@ index 9fbcc19..b7dd42e 100644
  
    if ($("#disk").prop("checked")) apiurl += "&disk=true";
  
-@@ -554,7 +801,9 @@ $(() => {
+@@ -554,7 +690,9 @@ $(() => {
    const GETDict = utils.parseQueryString();
  
    for (const [sel, element] of Object.entries(filters)) {
@@ -500,7 +603,7 @@ index 9fbcc19..b7dd42e 100644
        width: "100%",
        tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
        placeholder: "Select...",
-@@ -562,8 +811,8 @@ $(() => {
+@@ -562,8 +700,8 @@ $(() => {
      });
    }
  
@@ -511,7 +614,7 @@ index 9fbcc19..b7dd42e 100644
  
    if ("from" in GETDict) {
      from = Number(GETDict.from);
-@@ -573,30 +822,12 @@ $(() => {
+@@ -573,30 +711,12 @@ $(() => {
      until = Number(GETDict.until);
    }
  
@@ -547,7 +650,7 @@ index 9fbcc19..b7dd42e 100644
      serverSide: true,
      dom:
        "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
-@@ -609,8 +840,9 @@ $(() => {
+@@ -609,8 +729,9 @@ $(() => {
        {
          data: "time",
          width: "10%",
@@ -558,7 +661,7 @@ index 9fbcc19..b7dd42e 100644
              return moment.unix(data).format("Y-MM-DD [<br class='hidden-lg'>]HH:mm:ss z");
            }
  
-@@ -618,12 +850,19 @@ $(() => {
+@@ -618,12 +739,19 @@ $(() => {
          },
          searchable: false,
        },
@@ -583,7 +686,7 @@ index 9fbcc19..b7dd42e 100644
      ],
      lengthMenu: [
        [10, 25, 50, 100, 500, 1000],
-@@ -632,7 +871,10 @@ $(() => {
+@@ -632,7 +760,10 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -595,7 +698,7 @@ index 9fbcc19..b7dd42e 100644
      },
      stateLoadCallback() {
        const state = utils.stateLoadCallback("query_log_table");
-@@ -642,9 +884,12 @@ $(() => {
+@@ -642,9 +773,12 @@ $(() => {
      },
      rowCallback(row, data) {
        const querystatus = parseQueryStatus(data);
@@ -610,7 +713,7 @@ index 9fbcc19..b7dd42e 100644
            "<i class='fa fa-fw " +
              querystatus.icon +
              " " +
-@@ -658,14 +903,14 @@ $(() => {
+@@ -658,14 +792,14 @@ $(() => {
        }
  
        // Define row background color
@@ -627,7 +730,7 @@ index 9fbcc19..b7dd42e 100644
          const dnssec = parseDNSSEC(data);
          dnssecIcon =
            '<i class="mr-2 fa fa-fw ' +
-@@ -680,29 +925,33 @@ $(() => {
+@@ -680,29 +814,30 @@ $(() => {
        // Escape HTML in domain
        domain = dnssecIcon + utils.escapeHtml(domain);
  
@@ -663,16 +766,13 @@ index 9fbcc19..b7dd42e 100644
 -      }
 +      const actions = $("td.query-actions", row).empty();
 +      if (querystatus.buttontext !== false && !mixedStatus) actions.html(querystatus.buttontext);
-+      const opened = $(row).hasClass("shown");
-+      actions.append($("<button>", { type: "button", class: "btn btn-default btn-xs query-details-toggle",
-+        "aria-expanded": String(opened), text: "Details" }));
 +    },
 +    infoCallback(_settings, start, end, _max, total, text) {
 +      return grouped ? "Showing " + start + " to " + end + " of " + total + (total === 1 ? " group" : " groups") : text;
      },
      initComplete() {
        this.api()
-@@ -718,12 +967,16 @@ $(() => {
+@@ -718,12 +853,16 @@ $(() => {
            // Replace footer text with input field for searchable columns
            const input = document.createElement("input");
            input.placeholder = this.footer().textContent;
@@ -692,53 +792,35 @@ index 9fbcc19..b7dd42e 100644
              }
            });
  
-@@ -732,10 +985,17 @@ $(() => {
+@@ -732,10 +871,12 @@ $(() => {
      },
    });
  
 +  $("#all-queries").on("column-reorder.dt", () => table.draw(false));
 +
    // Add event listener for adding domains to the allow-/blocklist
-   $("#all-queries tbody").on("click", "button", function (event) {
+-  $("#all-queries tbody").on("click", "button", function (event) {
++  $("#all-queries tbody").on("click", "td.query-actions button", function () {
      const button = $(this);
 -    const tr = button.parents("tr");
 +    const tr = button.closest("tr");
-+    if (button.hasClass("query-details-toggle")) {
-+      toggleQueryDetails(tr);
-+      event.stopPropagation();
-+      return;
-+    }
      const allowButton = button[0].classList.contains("text-green");
      const denyButton = button[0].classList.contains("text-red");
      const data = table.row(tr).data();
-@@ -751,14 +1011,13 @@ $(() => {
+@@ -744,58 +885,70 @@ $(() => {
+     } else if (allowButton) {
+       utils.addFromQueryLog(data.domain, "allow");
+     }
+-    // else: no (colorful) button, so nothing to do
+-
+-    // Prevent tr click even tto be triggered for row from opening/closing
+-    event.stopPropagation();
    });
  
-   // Add event listener for opening and closing details, except on rows with "details-row" class
+-  // Add event listener for opening and closing details, except on rows with "details-row" class
 -  $("#all-queries tbody").on("click", "tr:not(.details-row)", function () {
 -    const tr = $(this);
-+  $("#all-queries tbody").on("click", "tr:not(.details-row)", function (event) {
-+    if (event.target.closest(".query-intervals") || globalThis.getSelection().toString()) return;
-+    toggleQueryDetails($(this));
-+  });
-+  function toggleQueryDetails(tr) {
-     const row = table.row(tr);
--
--    if (globalThis.getSelection().toString().length > 0) {
--      // This event was triggered by a selection, so don't open the row
--      return;
--    }
-+    if (!row.data()) return;
- 
-     if (row.child.isShown()) {
-       // This row is already open - close it
-@@ -769,33 +1028,71 @@ $(() => {
-       row.child(formatInfo(row.data()), "details-row").show();
-       tr.addClass("shown");
-     }
-+    tr.find(".query-details-toggle").attr("aria-expanded", String(row.child.isShown()));
-+  }
-+
+-    const row = table.row(tr);
 +  const stopwatch = replyTimeTitles.first().html();
 +  const groupButton = $('<button type="button" class="btn btn-sm btn-default btn-flat" aria-pressed="false">Group</button>');
 +  const scopeButton = $(
@@ -755,7 +837,10 @@ index 9fbcc19..b7dd42e 100644
 +    resetQuerySnapshot();
 +    table.draw();
 +  });
-+
+ 
+-    if (globalThis.getSelection().toString().length > 0) {
+-      // This event was triggered by a selection, so don't open the row
+-      return;
 +  groupButton.on("click", () => {
 +    if (!grouped) individualOrder = table.order().map(([i, dir]) => [table.colReorder.transpose(i, "toOriginal"), dir]);
 +    grouped = !grouped;
@@ -764,9 +849,18 @@ index 9fbcc19..b7dd42e 100644
 +    if (grouped) {
 +      liveMode = false;
 +      $("#live").prop("checked", false);
-+    }
+     }
 +    $("#live").prop("disabled", grouped || $("#disk").prop("checked"));
-+
+ 
+-    if (row.child.isShown()) {
+-      // This row is already open - close it
+-      row.child.hide();
+-      tr.removeClass("shown");
+-    } else {
+-      // Open this row. Add a class to the row
+-      row.child(formatInfo(row.data()), "details-row").show();
+-      tr.addClass("shown");
+-    }
 +    resetQuerySnapshot();
 +    const order = grouped ? [[5, "desc"]] : individualOrder;
 +    table.order(order.map(([i, dir]) => [table.colReorder.transpose(i), dir])).draw();
@@ -815,7 +909,7 @@ index 9fbcc19..b7dd42e 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..a4f25d2 100644
+index 2b7138e..72f0a23 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -852,7 +946,7 @@ index 2b7138e..a4f25d2 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.29";
++  const version = "1.1.30";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;

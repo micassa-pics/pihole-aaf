@@ -19,7 +19,7 @@ In this fictional example, `maple-tablet.test` sent 240 A queries for `calendar.
 ## Filter and inspect results
 
 - Select the button beside **Group** or **Ungroup** to cycle through **All**, **Blocked**, and **Allowed**. Your client filter stays active.
-- Select **Details** to inspect the latest query in a group. **Mixed** means the queries in that group had different results.
+- **Mixed** means the queries in that group had different results.
 - Select **Refresh** to include newer requests.
 - Select **Ungroup** to see individual requests and their reply times.
 
