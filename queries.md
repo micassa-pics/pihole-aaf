@@ -19,7 +19,7 @@ In this fictional example, `maple-tablet.test` sent 240 A queries for `calendar.
 ## Filter and inspect results
 
 - Select the button beside **Group** or **Ungroup** to cycle through **All**, **Blocked**, and **Allowed**. Your client filter stays active.
-- **Mixed** means the queries had different statuses or CNAME targets. These rows have no **Allow** or **Deny** button. Select **Ungroup** to see the action for each request.
+- **Mixed** means the queries had different statuses or CNAME targets. A mixed group shows **Deny** if Pi-hole forwarded or served every request from cache. Other mixed groups have no action. Select **Ungroup** to see the action for each request.
 - Select **Refresh** to include newer requests.
 - Select **Ungroup** to see individual requests and their reply times.
 

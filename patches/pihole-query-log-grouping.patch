@@ -52,7 +52,7 @@ index dd07cfd..c0b5575 100644
  <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>
  
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..7039b15 100644
+index 9fbcc19..7f31054 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
 @@ -16,6 +16,7 @@ let beginningOfTime = null; // seconds since epoch
@@ -111,7 +111,7 @@ index 9fbcc19..7039b15 100644
        // Update global variables
        // Convert milliseconds (JS) to seconds (API)
        from = moment(startt).utc().valueOf() / 1000;
-@@ -132,16 +149,275 @@ function initDateRangePicker(data) {
+@@ -132,16 +149,277 @@ function initDateRangePicker(data) {
    });
  }
  
@@ -187,13 +187,15 @@ index 9fbcc19..7039b15 100644
 +      const { domain, type, client } = query;
 +      const hidden = domain === "hidden" || !client.ip || client.ip === "0.0.0.0";
 +      const id = hidden ? Symbol() : JSON.stringify([String(domain).toLowerCase(), type, client.ip]);
++      const forwardedOrCached = ["FORWARDED", "CACHE", "CACHE_STALE"].includes(query.status);
 +      let existing = groups.get(id);
 +      if (existing) {
 +        existing.group.count++;
++        existing.group.allForwardedOrCached &&= forwardedOrCached;
 +        existing.group.mixedStatus ||= existing.status !== query.status || existing.cname !== query.cname;
 +        existing.group.mixedDNSSEC ||= existing.dnssec !== query.dnssec;
 +      } else {
-+        existing = { ...query, group: { count: 1, range, bins: new Array(queryChartBins).fill(0), mixedStatus: false, mixedDNSSEC: false } };
++        existing = { ...query, group: { count: 1, allForwardedOrCached: forwardedOrCached, range, bins: new Array(queryChartBins).fill(0), mixedStatus: false, mixedDNSSEC: false } };
 +        groups.set(id, existing);
 +      }
 +      // The API includes the end timestamp. Put that endpoint in the last slot.
@@ -395,7 +397,7 @@ index 9fbcc19..7039b15 100644
  }
  
  function parseQueryStatus(data) {
-@@ -214,6 +490,7 @@ function parseQueryStatus(data) {
+@@ -214,6 +492,7 @@ function parseQueryStatus(data) {
        buttontext = "";
        blocked = true;
        break;
@@ -403,7 +405,7 @@ index 9fbcc19..7039b15 100644
      case "QUERY_EXTERNAL_BLOCKED_EDE15":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -274,6 +551,7 @@ function parseQueryStatus(data) {
+@@ -274,6 +553,7 @@ function parseQueryStatus(data) {
        buttontext =
          '<button type="button" class="btn btn-default btn-sm text-red btn-blacklist"><i class="fa fa-ban"></i> Deny</button>';
        break;
@@ -411,7 +413,7 @@ index 9fbcc19..7039b15 100644
      case "SPECIAL_DOMAIN":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -351,156 +629,16 @@ function parseDNSSEC(data) {
+@@ -351,156 +631,16 @@ function parseDNSSEC(data) {
    return { text, icon, color };
  }
  
@@ -577,7 +579,7 @@ index 9fbcc19..7039b15 100644
  }
  
  function parseFilters() {
-@@ -515,17 +653,15 @@ function filterOn(param, dict) {
+@@ -515,17 +655,15 @@ function filterOn(param, dict) {
  function getAPIURL(filters) {
    let apiurl = document.body.dataset.apiurl + "/queries?";
    for (const [key, filter] of Object.entries(filters)) {
@@ -599,7 +601,7 @@ index 9fbcc19..7039b15 100644
  
    if ($("#disk").prop("checked")) apiurl += "&disk=true";
  
-@@ -554,7 +690,9 @@ $(() => {
+@@ -554,7 +692,9 @@ $(() => {
    const GETDict = utils.parseQueryString();
  
    for (const [sel, element] of Object.entries(filters)) {
@@ -610,7 +612,7 @@ index 9fbcc19..7039b15 100644
        width: "100%",
        tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
        placeholder: "Select...",
-@@ -562,8 +700,8 @@ $(() => {
+@@ -562,8 +702,8 @@ $(() => {
      });
    }
  
@@ -621,7 +623,7 @@ index 9fbcc19..7039b15 100644
  
    if ("from" in GETDict) {
      from = Number(GETDict.from);
-@@ -573,30 +711,12 @@ $(() => {
+@@ -573,30 +713,12 @@ $(() => {
      until = Number(GETDict.until);
    }
  
@@ -657,7 +659,7 @@ index 9fbcc19..7039b15 100644
      serverSide: true,
      dom:
        "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
-@@ -609,8 +729,9 @@ $(() => {
+@@ -609,8 +731,9 @@ $(() => {
        {
          data: "time",
          width: "10%",
@@ -668,7 +670,7 @@ index 9fbcc19..7039b15 100644
              return moment.unix(data).format("Y-MM-DD [<br class='hidden-lg'>]HH:mm:ss z");
            }
  
-@@ -618,12 +739,19 @@ $(() => {
+@@ -618,12 +741,19 @@ $(() => {
          },
          searchable: false,
        },
@@ -693,7 +695,7 @@ index 9fbcc19..7039b15 100644
      ],
      lengthMenu: [
        [10, 25, 50, 100, 500, 1000],
-@@ -632,7 +760,10 @@ $(() => {
+@@ -632,7 +762,10 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -705,7 +707,7 @@ index 9fbcc19..7039b15 100644
      },
      stateLoadCallback() {
        const state = utils.stateLoadCallback("query_log_table");
-@@ -642,9 +773,12 @@ $(() => {
+@@ -642,9 +775,12 @@ $(() => {
      },
      rowCallback(row, data) {
        const querystatus = parseQueryStatus(data);
@@ -720,7 +722,7 @@ index 9fbcc19..7039b15 100644
            "<i class='fa fa-fw " +
              querystatus.icon +
              " " +
-@@ -658,14 +792,14 @@ $(() => {
+@@ -658,14 +794,14 @@ $(() => {
        }
  
        // Define row background color
@@ -737,7 +739,7 @@ index 9fbcc19..7039b15 100644
          const dnssec = parseDNSSEC(data);
          dnssecIcon =
            '<i class="mr-2 fa fa-fw ' +
-@@ -680,29 +814,30 @@ $(() => {
+@@ -680,29 +816,30 @@ $(() => {
        // Escape HTML in domain
        domain = dnssecIcon + utils.escapeHtml(domain);
  
@@ -772,14 +774,14 @@ index 9fbcc19..7039b15 100644
 -        $("td:eq(6)", row).html(querystatus.buttontext);
 -      }
 +      const actions = $("td.query-actions", row).empty();
-+      if (querystatus.buttontext !== false && !mixedStatus) actions.html(querystatus.buttontext);
++      if (!mixedStatus || data.group.allForwardedOrCached) actions.html(querystatus.buttontext);
 +    },
 +    infoCallback(_settings, start, end, _max, total, text) {
 +      return grouped ? "Showing " + start + " to " + end + " of " + total + (total === 1 ? " group" : " groups") : text;
      },
      initComplete() {
        this.api()
-@@ -718,12 +853,16 @@ $(() => {
+@@ -718,12 +855,16 @@ $(() => {
            // Replace footer text with input field for searchable columns
            const input = document.createElement("input");
            input.placeholder = this.footer().textContent;
@@ -799,7 +801,7 @@ index 9fbcc19..7039b15 100644
              }
            });
  
-@@ -732,10 +871,12 @@ $(() => {
+@@ -732,10 +873,12 @@ $(() => {
      },
    });
  
@@ -814,7 +816,7 @@ index 9fbcc19..7039b15 100644
      const allowButton = button[0].classList.contains("text-green");
      const denyButton = button[0].classList.contains("text-red");
      const data = table.row(tr).data();
-@@ -744,58 +885,70 @@ $(() => {
+@@ -744,58 +887,70 @@ $(() => {
      } else if (allowButton) {
        utils.addFromQueryLog(data.domain, "allow");
      }
@@ -916,7 +918,7 @@ index 9fbcc19..7039b15 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..4f8a888 100644
+index 2b7138e..ff3959f 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -953,7 +955,7 @@ index 2b7138e..4f8a888 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.31";
++  const version = "1.1.32";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
