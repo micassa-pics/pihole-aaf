@@ -10,7 +10,7 @@ When you filter by one IP, **Recent Queries** shows the hostname or the IP in bo
 
 Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
 
-The **Time** chart divides the query range into 24 equal intervals, from oldest to newest. For a six-hour range, each bar covers 15 minutes. An empty slot means zero queries. Select the chart to read the count for each UTC interval. Start with a short range for large logs. The status shows how many queries Pi-hole has loaded.
+By default, **Group** shows the last 24 hours, with one bar per hour. Select a time range to chart that range in 24 equal intervals. The oldest interval is on the left. For a six-hour range, each bar covers 15 minutes. An empty slot means zero queries. Select the chart to read the count for each UTC interval. Start with a short range for large logs. The status shows how many queries Pi-hole has loaded.
 
 ![Grouped Recent Queries sorted by Count. The Time chart for calendar.example shows steady activity. The chart for maps.example shows two short bursts.](assets/grouped-query-log.jpg)
 

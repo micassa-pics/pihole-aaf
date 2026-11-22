@@ -44,10 +44,18 @@ index dd07cfd..bdbc8f4 100644
  <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>
  
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..b8ed7f4 100644
+index 9fbcc19..192f45d 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
-@@ -23,6 +23,20 @@ const dateformat = "MMM Do YYYY, HH:mm";
+@@ -16,6 +16,7 @@ let beginningOfTime = null; // seconds since epoch
+ const endOfTime = moment().endOf("day").unix();
+ // endOfEpoch to allow live updates to continue beyond end of day
+ const endOfEpoch = 2_147_483_647; // Jan 19, 2038, 03:14 in seconds
++let hasTimeFilter = false;
+ let from = null;
+ let until = null;
+ 
+@@ -23,6 +24,20 @@ const dateformat = "MMM Do YYYY, HH:mm";
  
  let table = null;
  let cursor = null;
@@ -68,7 +76,34 @@ index 9fbcc19..b8ed7f4 100644
  const filters = [
    "client_ip",
    "client_name",
-@@ -132,16 +146,271 @@ function initDateRangePicker(data) {
+@@ -66,8 +81,8 @@ function initDateRangePicker(data) {
+   // If from/until were not provided via GET, default them
+   // Only use defaults if beginningOfTime is valid
+   if (beginningOfTime !== null) {
+-    from ??= beginningOfTime;
+-    until ??= endOfTime;
++    from ??= (until ?? Math.floor(Date.now() / 1000)) - 24 * 3600;
++    until ??= Math.floor(Date.now() / 1000);
+   }
+ 
+   // If there's no valid data in the database, disable the datepicker
+@@ -82,6 +97,7 @@ function initDateRangePicker(data) {
+   const maxDateMoment = moment.unix(endOfTime);
+   const buildRanges = () => ({
+     "Last 10 Minutes": [moment().subtract(10, "minutes"), moment()],
++    "Last 24 Hours": [moment().subtract(24, "hours"), moment()],
+     "Last Hour": [moment().subtract(1, "hours"), moment()],
+     Today: [moment().startOf("day"), maxDateMoment],
+     Yesterday: [
+@@ -117,6 +133,7 @@ function initDateRangePicker(data) {
+       autoUpdateInput: true,
+     },
+     (startt, endt) => {
++      hasTimeFilter = true;
+       // Update global variables
+       // Convert milliseconds (JS) to seconds (API)
+       from = moment(startt).utc().valueOf() / 1000;
+@@ -132,16 +149,275 @@ function initDateRangePicker(data) {
    });
  }
  
@@ -106,10 +141,21 @@ index 9fbcc19..b8ed7f4 100644
 +    range.fill = utils.getCSSval(scopeClass, "background-color");
 +    range.grid = utils.getCSSval("graphs-grid", "background-color");
    }
++  const url = new URL(source.url);
++  if (grouped) {
++    const params = url.searchParams;
++    const now = Math.floor(Date.now() / 1000);
++    range.end = Math.min(Number(params.get("until") ?? now), now);
++    range.start = Math.min(Number(params.get("from") ?? range.end - 24 * 3600), range.end);
++    range.width = (range.end - range.start) / queryChartBins;
++    if (range.start < now - 24 * 3600) params.set("disk", "true");
++    params.set("from", range.start);
++    params.set("until", range.end);
++  }
 +  let page;
 +  let start = 0;
 +  do {
-+    page = await requestQueryPage(source.url, {
++    page = await requestQueryPage(url.href, {
 +      ...request,
 +      start,
 +      length: queryBatchSize,
@@ -122,13 +168,6 @@ index 9fbcc19..b8ed7f4 100644
 -  table.draw();
 +    if (requestId !== queryRequestId) return;
 +    if (beginningOfTime === null && start === 0) initDateRangePicker(page);
-+    if (grouped && start === 0) {
-+      const params = new URL(source.url).searchParams;
-+      const now = Date.now() / 1000;
-+      range.end = Math.min(Number(params.get("until") || now), now);
-+      range.start = Math.min(Number(params.get("from") ?? beginningOfTime ?? range.end), range.end);
-+      range.width = (range.end - range.start) / queryChartBins;
-+    }
 +
 +    for (const query of page.queries) {
 +      if (source.filterLocally && parseQueryStatus(query).blocked !== source.blocked) continue;
@@ -348,7 +387,7 @@ index 9fbcc19..b8ed7f4 100644
  }
  
  function parseQueryStatus(data) {
-@@ -214,6 +483,7 @@ function parseQueryStatus(data) {
+@@ -214,6 +490,7 @@ function parseQueryStatus(data) {
        buttontext = "";
        blocked = true;
        break;
@@ -356,7 +395,7 @@ index 9fbcc19..b8ed7f4 100644
      case "QUERY_EXTERNAL_BLOCKED_EDE15":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -274,6 +544,7 @@ function parseQueryStatus(data) {
+@@ -274,6 +551,7 @@ function parseQueryStatus(data) {
        buttontext =
          '<button type="button" class="btn btn-default btn-sm text-red btn-blacklist"><i class="fa fa-ban"></i> Deny</button>';
        break;
@@ -364,7 +403,7 @@ index 9fbcc19..b8ed7f4 100644
      case "SPECIAL_DOMAIN":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -446,7 +717,7 @@ function formatInfo(data) {
+@@ -446,7 +724,7 @@ function formatInfo(data) {
    return (
      '<div class="row">' +
      divStart +
@@ -373,7 +412,7 @@ index 9fbcc19..b8ed7f4 100644
      moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
      "</div>" +
      clientInfo +
-@@ -462,45 +733,16 @@ function formatInfo(data) {
+@@ -462,45 +740,16 @@ function formatInfo(data) {
    );
  }
  
@@ -428,16 +467,29 @@ index 9fbcc19..b8ed7f4 100644
  }
  
  function parseFilters() {
-@@ -525,7 +767,7 @@ function getAPIURL(filters) {
-   // up the database lookups notably on slow devices. The API accepts timestamps
-   // in seconds since epoch
-   if (from > beginningOfTime) apiurl += "&from=" + from;
+@@ -515,17 +764,15 @@ function filterOn(param, dict) {
+ function getAPIURL(filters) {
+   let apiurl = document.body.dataset.apiurl + "/queries?";
+   for (const [key, filter] of Object.entries(filters)) {
+-    if (filterOn(key, filters)) {
++    if (key !== "from" && key !== "until" && filterOn(key, filters)) {
+       if (!apiurl.endsWith("?")) apiurl += "&";
+       apiurl += `${key}=${encodeURIComponent(filter)}`;
+     }
+   }
+ 
+-  // Omit from/until filtering if we cannot reach these times. This will speed
+-  // up the database lookups notably on slow devices. The API accepts timestamps
+-  // in seconds since epoch
+-  if (from > beginningOfTime) apiurl += "&from=" + from;
 -  if (until > beginningOfTime && until < endOfTime) apiurl += "&until=" + until;
-+  if (until !== null && until < endOfTime) apiurl += "&until=" + until;
++  // Keep explicit picker bounds, including All Time.
++  if (hasTimeFilter && from !== null) apiurl += "&from=" + from;
++  if (hasTimeFilter && until !== null && until < endOfEpoch) apiurl += "&until=" + until;
  
    if ($("#disk").prop("checked")) apiurl += "&disk=true";
  
-@@ -554,7 +796,9 @@ $(() => {
+@@ -554,7 +801,9 @@ $(() => {
    const GETDict = utils.parseQueryString();
  
    for (const [sel, element] of Object.entries(filters)) {
@@ -448,23 +500,22 @@ index 9fbcc19..b8ed7f4 100644
        width: "100%",
        tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
        placeholder: "Select...",
-@@ -562,8 +806,8 @@ $(() => {
+@@ -562,8 +811,8 @@ $(() => {
      });
    }
  
 -  getSuggestions(GETDict);
 -  const apiURL = getAPIURL(GETDict);
 +  getSuggestions();
-+  queryAPIURL = getAPIURL(GETDict);
++  hasTimeFilter = "from" in GETDict || "until" in GETDict;
  
    if ("from" in GETDict) {
      from = Number(GETDict.from);
-@@ -573,30 +817,10 @@ $(() => {
+@@ -573,30 +822,12 @@ $(() => {
      until = Number(GETDict.until);
    }
  
-+  const replyTimeTitles = $("#all-queries thead th:nth-child(6), #all-queries tfoot th:nth-child(6)");
-   table = $("#all-queries").DataTable({
+-  table = $("#all-queries").DataTable({
 -    ajax: {
 -      url: apiURL,
 -      error: handleAjaxError,
@@ -484,16 +535,19 @@ index 9fbcc19..b8ed7f4 100644
 -        if (liveMode) {
 -          utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
 -        }
--
++  queryAPIURL = getAPIURL(GETDict);
+ 
 -        return d;
 -      },
 -    },
++  const replyTimeTitles = $("#all-queries thead th:nth-child(6), #all-queries tfoot th:nth-child(6)");
++  table = $("#all-queries").DataTable({
 +    colReorder: { realtime: false },
 +    ajax: loadQueryRows,
      serverSide: true,
      dom:
        "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
-@@ -609,8 +833,9 @@ $(() => {
+@@ -609,8 +840,9 @@ $(() => {
        {
          data: "time",
          width: "10%",
@@ -504,7 +558,7 @@ index 9fbcc19..b8ed7f4 100644
              return moment.unix(data).format("Y-MM-DD [<br class='hidden-lg'>]HH:mm:ss z");
            }
  
-@@ -618,12 +843,19 @@ $(() => {
+@@ -618,12 +850,19 @@ $(() => {
          },
          searchable: false,
        },
@@ -529,7 +583,7 @@ index 9fbcc19..b8ed7f4 100644
      ],
      lengthMenu: [
        [10, 25, 50, 100, 500, 1000],
-@@ -632,7 +864,10 @@ $(() => {
+@@ -632,7 +871,10 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -541,7 +595,7 @@ index 9fbcc19..b8ed7f4 100644
      },
      stateLoadCallback() {
        const state = utils.stateLoadCallback("query_log_table");
-@@ -642,9 +877,12 @@ $(() => {
+@@ -642,9 +884,12 @@ $(() => {
      },
      rowCallback(row, data) {
        const querystatus = parseQueryStatus(data);
@@ -556,7 +610,7 @@ index 9fbcc19..b8ed7f4 100644
            "<i class='fa fa-fw " +
              querystatus.icon +
              " " +
-@@ -658,14 +896,14 @@ $(() => {
+@@ -658,14 +903,14 @@ $(() => {
        }
  
        // Define row background color
@@ -573,7 +627,7 @@ index 9fbcc19..b8ed7f4 100644
          const dnssec = parseDNSSEC(data);
          dnssecIcon =
            '<i class="mr-2 fa fa-fw ' +
-@@ -680,29 +918,33 @@ $(() => {
+@@ -680,29 +925,33 @@ $(() => {
        // Escape HTML in domain
        domain = dnssecIcon + utils.escapeHtml(domain);
  
@@ -618,7 +672,7 @@ index 9fbcc19..b8ed7f4 100644
      },
      initComplete() {
        this.api()
-@@ -718,12 +960,16 @@ $(() => {
+@@ -718,12 +967,16 @@ $(() => {
            // Replace footer text with input field for searchable columns
            const input = document.createElement("input");
            input.placeholder = this.footer().textContent;
@@ -638,7 +692,7 @@ index 9fbcc19..b8ed7f4 100644
              }
            });
  
-@@ -732,10 +978,17 @@ $(() => {
+@@ -732,10 +985,17 @@ $(() => {
      },
    });
  
@@ -657,7 +711,7 @@ index 9fbcc19..b8ed7f4 100644
      const allowButton = button[0].classList.contains("text-green");
      const denyButton = button[0].classList.contains("text-red");
      const data = table.row(tr).data();
-@@ -751,14 +1004,13 @@ $(() => {
+@@ -751,14 +1011,13 @@ $(() => {
    });
  
    // Add event listener for opening and closing details, except on rows with "details-row" class
@@ -678,7 +732,7 @@ index 9fbcc19..b8ed7f4 100644
  
      if (row.child.isShown()) {
        // This row is already open - close it
-@@ -769,33 +1021,69 @@ $(() => {
+@@ -769,33 +1028,69 @@ $(() => {
        row.child(formatInfo(row.data()), "details-row").show();
        tr.addClass("shown");
      }
@@ -759,7 +813,7 @@ index 9fbcc19..b8ed7f4 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..4630fce 100644
+index 2b7138e..a29eda8 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -796,7 +850,7 @@ index 2b7138e..4630fce 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.27";
++  const version = "1.1.28";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
