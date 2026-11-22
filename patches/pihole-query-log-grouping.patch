@@ -44,7 +44,7 @@ index dd07cfd..bdbc8f4 100644
  <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>
  
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..192f45d 100644
+index 9fbcc19..b7dd42e 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
 @@ -16,6 +16,7 @@ let beginningOfTime = null; // seconds since epoch
@@ -732,7 +732,7 @@ index 9fbcc19..192f45d 100644
  
      if (row.child.isShown()) {
        // This row is already open - close it
-@@ -769,33 +1028,69 @@ $(() => {
+@@ -769,33 +1028,71 @@ $(() => {
        row.child(formatInfo(row.data()), "details-row").show();
        tr.addClass("shown");
      }
@@ -772,6 +772,8 @@ index 9fbcc19..192f45d 100644
 +    table.order(order.map(([i, dir]) => [table.colReorder.transpose(i), dir])).draw();
    });
  
++  groupButton.trigger("click");
++
    $("#refresh").on("click", refreshTable);
  
 -  // Disable live mode when #disk is checked
@@ -813,7 +815,7 @@ index 9fbcc19..192f45d 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..a29eda8 100644
+index 2b7138e..a4f25d2 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -850,7 +852,7 @@ index 2b7138e..a29eda8 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.28";
++  const version = "1.1.29";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;

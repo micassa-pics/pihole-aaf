@@ -8,7 +8,7 @@ Drag a Query Log header to move its column. Your browser remembers the layout fo
 
 When you filter by one IP, **Recent Queries** shows the hostname or the IP in bold. Edit the field to filter by another hostname or IP. Select **Apply** or press **Enter**. Select **Cancel** or press **Esc** to discard the edit.
 
-Select **Group**. Each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
+The Query Log opens in grouped view by default. Select **Ungroup** to see individual requests. Reload the page to return to grouped view. In grouped view, each row combines requests with the same domain, query type, and client IP. **Count** replaces reply time. It includes matching requests from all pages of the filtered results.
 
 By default, **Group** shows the last 24 hours, with one bar per hour. Select a time range to chart that range in 24 equal intervals. The oldest interval is on the left. For a six-hour range, each bar covers 15 minutes. An empty slot means zero queries. Select the chart to read the count for each UTC interval. Start with a short range for large logs. The status shows how many queries Pi-hole has loaded.
 
