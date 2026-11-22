@@ -44,7 +44,7 @@ index dd07cfd..bdbc8f4 100644
  <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>
  
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index 9fbcc19..f56889e 100644
+index 9fbcc19..b8ed7f4 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
 @@ -23,6 +23,20 @@ const dateformat = "MMM Do YYYY, HH:mm";
@@ -68,7 +68,7 @@ index 9fbcc19..f56889e 100644
  const filters = [
    "client_ip",
    "client_name",
-@@ -132,16 +146,282 @@ function initDateRangePicker(data) {
+@@ -132,16 +146,271 @@ function initDateRangePicker(data) {
    });
  }
  
@@ -296,9 +296,7 @@ index 9fbcc19..f56889e 100644
 +  const id = ++queryRequestId;
 +  queryRequest?.abort();
 +  const status = $("#query-view-status");
-+  const cancel = $("#cancel-query-load");
 +  const progress = $("#query-progress");
-+  cancel.prop("hidden", true).off("click");
 +  progress.empty();
 +  status.text("");
 +
@@ -310,14 +308,6 @@ index 9fbcc19..f56889e 100644
 +      const key = JSON.stringify([source.url, queryScope, request.search, request.columns, grouped ? null : request.order]);
 +      if (querySnapshot?.key !== key) {
 +        status.text(grouped ? "Grouping queries…" : "Filtering queries…");
-+        cancel.prop("hidden", false).one("click", () => {
-+          ++queryRequestId;
-+          queryRequest?.abort();
-+          cancel.prop("hidden", true);
-+          progress.empty();
-+          status.text("Load canceled. Select Refresh to try again.");
-+          callback({ draw: request.draw, data: [], recordsTotal: 0, recordsFiltered: 0 });
-+        });
 +        const rows = await collectQueryRows(request, source, id);
 +        if (id !== queryRequestId) return;
 +        querySnapshot = { key, rows };
@@ -352,14 +342,13 @@ index 9fbcc19..f56889e 100644
 +    callback({ draw: request.draw, data: [], recordsTotal: 0, recordsFiltered: 0 });
 +  } finally {
 +    if (id === queryRequestId) {
-+      cancel.prop("hidden", true).off("click");
 +      progress.empty();
 +    }
 +  }
  }
  
  function parseQueryStatus(data) {
-@@ -214,6 +494,7 @@ function parseQueryStatus(data) {
+@@ -214,6 +483,7 @@ function parseQueryStatus(data) {
        buttontext = "";
        blocked = true;
        break;
@@ -367,7 +356,7 @@ index 9fbcc19..f56889e 100644
      case "QUERY_EXTERNAL_BLOCKED_EDE15":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -274,6 +555,7 @@ function parseQueryStatus(data) {
+@@ -274,6 +544,7 @@ function parseQueryStatus(data) {
        buttontext =
          '<button type="button" class="btn btn-default btn-sm text-red btn-blacklist"><i class="fa fa-ban"></i> Deny</button>';
        break;
@@ -375,7 +364,7 @@ index 9fbcc19..f56889e 100644
      case "SPECIAL_DOMAIN":
        colorClass = "text-red";
        icon = "fa-solid fa-ban";
-@@ -446,7 +728,7 @@ function formatInfo(data) {
+@@ -446,7 +717,7 @@ function formatInfo(data) {
    return (
      '<div class="row">' +
      divStart +
@@ -384,7 +373,7 @@ index 9fbcc19..f56889e 100644
      moment.unix(data.time).format("Y-MM-DD HH:mm:ss.SSS z") +
      "</div>" +
      clientInfo +
-@@ -462,45 +744,16 @@ function formatInfo(data) {
+@@ -462,45 +733,16 @@ function formatInfo(data) {
    );
  }
  
@@ -439,7 +428,7 @@ index 9fbcc19..f56889e 100644
  }
  
  function parseFilters() {
-@@ -525,7 +778,7 @@ function getAPIURL(filters) {
+@@ -525,7 +767,7 @@ function getAPIURL(filters) {
    // up the database lookups notably on slow devices. The API accepts timestamps
    // in seconds since epoch
    if (from > beginningOfTime) apiurl += "&from=" + from;
@@ -448,7 +437,7 @@ index 9fbcc19..f56889e 100644
  
    if ($("#disk").prop("checked")) apiurl += "&disk=true";
  
-@@ -554,7 +807,9 @@ $(() => {
+@@ -554,7 +796,9 @@ $(() => {
    const GETDict = utils.parseQueryString();
  
    for (const [sel, element] of Object.entries(filters)) {
@@ -459,7 +448,7 @@ index 9fbcc19..f56889e 100644
        width: "100%",
        tags: sel < 4, // Only the first four (client(IP/name), domain, upstream) are allowed to freely specify input
        placeholder: "Select...",
-@@ -562,8 +817,8 @@ $(() => {
+@@ -562,8 +806,8 @@ $(() => {
      });
    }
  
@@ -470,7 +459,7 @@ index 9fbcc19..f56889e 100644
  
    if ("from" in GETDict) {
      from = Number(GETDict.from);
-@@ -573,30 +828,10 @@ $(() => {
+@@ -573,30 +817,10 @@ $(() => {
      until = Number(GETDict.until);
    }
  
@@ -504,7 +493,7 @@ index 9fbcc19..f56889e 100644
      serverSide: true,
      dom:
        "<'row'<'col-sm-4'l><'col-sm-8'p>>" +
-@@ -609,8 +844,9 @@ $(() => {
+@@ -609,8 +833,9 @@ $(() => {
        {
          data: "time",
          width: "10%",
@@ -515,7 +504,7 @@ index 9fbcc19..f56889e 100644
              return moment.unix(data).format("Y-MM-DD [<br class='hidden-lg'>]HH:mm:ss z");
            }
  
-@@ -618,12 +854,19 @@ $(() => {
+@@ -618,12 +843,19 @@ $(() => {
          },
          searchable: false,
        },
@@ -540,7 +529,7 @@ index 9fbcc19..f56889e 100644
      ],
      lengthMenu: [
        [10, 25, 50, 100, 500, 1000],
-@@ -632,7 +875,10 @@ $(() => {
+@@ -632,7 +864,10 @@ $(() => {
      stateSave: true,
      stateDuration: 0,
      stateSaveCallback(settings, data) {
@@ -552,7 +541,7 @@ index 9fbcc19..f56889e 100644
      },
      stateLoadCallback() {
        const state = utils.stateLoadCallback("query_log_table");
-@@ -642,9 +888,12 @@ $(() => {
+@@ -642,9 +877,12 @@ $(() => {
      },
      rowCallback(row, data) {
        const querystatus = parseQueryStatus(data);
@@ -567,7 +556,7 @@ index 9fbcc19..f56889e 100644
            "<i class='fa fa-fw " +
              querystatus.icon +
              " " +
-@@ -658,14 +907,14 @@ $(() => {
+@@ -658,14 +896,14 @@ $(() => {
        }
  
        // Define row background color
@@ -584,7 +573,7 @@ index 9fbcc19..f56889e 100644
          const dnssec = parseDNSSEC(data);
          dnssecIcon =
            '<i class="mr-2 fa fa-fw ' +
-@@ -680,29 +929,33 @@ $(() => {
+@@ -680,29 +918,33 @@ $(() => {
        // Escape HTML in domain
        domain = dnssecIcon + utils.escapeHtml(domain);
  
@@ -629,7 +618,7 @@ index 9fbcc19..f56889e 100644
      },
      initComplete() {
        this.api()
-@@ -718,12 +971,16 @@ $(() => {
+@@ -718,12 +960,16 @@ $(() => {
            // Replace footer text with input field for searchable columns
            const input = document.createElement("input");
            input.placeholder = this.footer().textContent;
@@ -649,7 +638,7 @@ index 9fbcc19..f56889e 100644
              }
            });
  
-@@ -732,10 +989,17 @@ $(() => {
+@@ -732,10 +978,17 @@ $(() => {
      },
    });
  
@@ -668,7 +657,7 @@ index 9fbcc19..f56889e 100644
      const allowButton = button[0].classList.contains("text-green");
      const denyButton = button[0].classList.contains("text-red");
      const data = table.row(tr).data();
-@@ -751,14 +1015,13 @@ $(() => {
+@@ -751,14 +1004,13 @@ $(() => {
    });
  
    // Add event listener for opening and closing details, except on rows with "details-row" class
@@ -689,7 +678,7 @@ index 9fbcc19..f56889e 100644
  
      if (row.child.isShown()) {
        // This row is already open - close it
-@@ -769,33 +1032,70 @@ $(() => {
+@@ -769,33 +1021,69 @@ $(() => {
        row.child(formatInfo(row.data()), "details-row").show();
        tr.addClass("shown");
      }
@@ -703,8 +692,7 @@ index 9fbcc19..f56889e 100644
 +  ).attr("aria-label", "Query status: All");
 +  const viewStatus = $('<span id="query-view-status" class="mr-2" role="status"></span>');
 +  const progress = $('<span id="query-progress" class="mr-2"></span>');
-+  const cancel = $('<button type="button" id="cancel-query-load" class="btn btn-sm btn-default mr-2" hidden>Cancel load</button>');
-+  $("#live").parent().before(viewStatus, progress, cancel, groupButton, " ", scopeButton, " ");
++  $("#live").parent().before(viewStatus, progress, groupButton, " ", scopeButton, " ");
 +
 +  scopeButton.on("click", () => {
 +    queryScope = (queryScope + 1) % queryScopes.length;
@@ -771,7 +759,7 @@ index 9fbcc19..f56889e 100644
 +  table.draw();
  }
 diff --git a/scripts/js/utils.js b/scripts/js/utils.js
-index 2b7138e..756429f 100644
+index 2b7138e..4630fce 100644
 --- a/scripts/js/utils.js
 +++ b/scripts/js/utils.js
 @@ -856,3 +856,42 @@ globalThis.utils = (function () {
@@ -808,7 +796,7 @@ index 2b7138e..756429f 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.26";
++  const version = "1.1.27";
 +  line.dataset.queries = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
