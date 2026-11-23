@@ -10,6 +10,10 @@ The Query Log keeps the original IP on each row. Grouping still uses domain, typ
 
 Coverage starts when the monitor observes a lease or reservation. For an offline static device, the monitor uses the configured reservation. That is weaker evidence than a DHCP lease. Changes made directly through the Pi-hole API or config file bypass the page's edit check. A change and reversal between two checks can go unseen. This feature supports one MAC and one IPv4 address per reservation. Keep one monitor per Pi-hole instance.
 
+The edit check runs in the browser. Two administrators can read the same checkpoint and submit changes at the same time. Use one editor for address changes. If a device never takes its new address, you can delete the pending reservation from the DHCP page.
+
+If the monitor stops, the DHCP charts show standard per-IP counts with a notice. A filtered Query Log requires a current checkpoint. The ungrouped handoff view defaults to the last 24 hours. Set a start time for older queries. A pending move has no query rows until the device takes its address.
+
 ## Install and check
 
 1. Install the two page patches. Copy the admin web files to staging. From that directory, run the following with the path to this feature's patch.

@@ -1,7 +1,9 @@
 import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from worker import update, unique_pairs
+from worker import KEEP, snapshot, update, unique_pairs
 
 
 class HandoffTest(unittest.TestCase):
@@ -28,6 +30,46 @@ class HandoffTest(unittest.TestCase):
 
     def test_ambiguous_leases(self):
         self.assertEqual(unique_pairs([("a","x"),("b","x"),("c","y"),("c","z")]), {})
+
+    def test_conflict_then_same_address_reuse(self):
+        state = {}
+        update(state, 100, {"previous":"x"}, {})
+        pending = update(state, 115, {"previous":"x"}, {"new":"x"})
+        self.assertIn("R new x pending", pending)
+        ready = update(state, 130, {"new":"x"}, {"new":"x"})
+        self.assertEqual(ready.splitlines(), ["T 130", "R new x ready", "x x 130 130"])
+
+    def test_pending_reservation_retargeted_outside_ui(self):
+        state = {}
+        update(state, 100, {"a":"x"}, {"a":"y"})
+        self.assertIn("pending", update(state, 115, {"a":"x"}, {"a":"z"}))
+        self.assertIn("pending", update(state, 130, {}, {"a":"z"}))
+        self.assertIn("z x 100 115", update(state, 145, {"a":"z"}, {"a":"z"}))
+
+    def test_clock_rollback_and_retention(self):
+        s = {}
+        update(s, 100, {"a":"x"}, {})
+        before = json.dumps(s)
+        with self.assertRaises(ValueError):
+            update(s, 99, {"a":"y"}, {})
+        self.assertEqual(before, json.dumps(s))
+        update(s, 101 + KEEP, {}, {})
+        self.assertEqual(s["windows"], {})
+
+    def test_files_exclude_expired_and_conflicting_leases(self):
+        with TemporaryDirectory() as directory:
+            config = Path(directory)
+            mac = "02:00:00:00:00:01"
+            other = "02:00:00:00:00:02"
+            (config / "pihole.toml").write_text(f'[dhcp]\nactive=true\nhosts=["{mac},192.0.2.2,printer"]')
+            (config / "dhcp.leases").write_text(
+                f"100 {mac} 192.0.2.1 expired *\n200 {mac} 192.0.2.2 printer *\n"
+                f"0 {other} 192.0.2.2 other *\n")
+            leases, reservations, macs, ips = snapshot(config, 100)
+            self.assertEqual(leases, {})
+            self.assertEqual(reservations, {mac:"192.0.2.2"})
+            self.assertEqual(macs, {mac, other})
+            self.assertEqual(ips, {"192.0.2.2"})
 
     def test_two_static_moves_keep_all_observed_addresses(self):
         s = {}

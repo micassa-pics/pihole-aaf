@@ -55,17 +55,23 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
     moves = state.setdefault("moves", {})
     previous = state.get("reservations", {})
     pending = state.get("pending", {})
-    if now < state.get("last", 0):
-        raise ValueError("Clock moved backwards")
+    if now <= state.get("last", 0):
+        raise ValueError("Waiting for the clock to advance")
     for mac in list(windows):
         windows[mac] = [w for w in windows[mac] if w[2] >= now - KEEP]
         if not windows[mac]:
             del windows[mac]
+    former_owners = {}
+    for mac, history in windows.items():
+        for address, _, _ in history:
+            former_owners.setdefault(address, set()).add(mac)
     active = dict(leases)
     for mac, ip in reservations.items():
         history = windows.get(mac, [])
         old = previous.get(mac)
-        if old and old != ip:
+        if mac in pending and old != ip:
+            pending[mac] = ip
+        elif old and old != ip:
             moves[mac] = ip
             pending.pop(mac, None)
         elif old != ip or (mac not in moves and mac not in pending):
@@ -73,6 +79,10 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
                 pending[mac] = ip
             if mac in leases and leases[mac] != ip:
                 pending[mac] = ip
+        if ((ip in leases.values() and leases.get(mac) != ip)
+                or ip in ambiguous_ips or mac in ambiguous_macs
+                or (old != ip and leases.get(mac) != ip and former_owners.get(ip, set()) - {mac})):
+            pending[mac] = ip
         if pending.get(mac) == ip and leases.get(mac) == ip:
             moves[mac] = ip
             del pending[mac]
@@ -92,7 +102,8 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
         history = windows.get(mac, [])
         # An observed lease at another address is evidence of a move. A
         # same-address reservation without such evidence is an ordinary view.
-        if mac not in pending and any(w[0] != ip for w in history):
+        if mac not in pending and (any(w[0] != ip for w in history)
+                                   or former_owners.get(ip, set()) - {mac}):
             moves[mac] = ip
         result.append(f"R {mac} {ip} {'pending' if mac in pending else 'ready'}")
         if moves.get(mac) == ip and mac not in pending and history:
@@ -111,14 +122,22 @@ def write(path, data, mode):
     with tmp.open("w") as f:
         f.write(data)
         f.flush()
+        os.fchmod(f.fileno(), mode)
         os.fsync(f.fileno())
-    tmp.chmod(mode)
     tmp.replace(path)
+    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
 
 
 def main():
+    import fcntl
     os.umask(0o077)
     root = Path("/state")
+    writer_lock = (root / "worker.lock").open("a")
+    fcntl.flock(writer_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     path = root / "state.json"
     state = json.loads(path.read_text()) if path.exists() else {}
     while True:

@@ -1,6 +1,6 @@
 diff --git a/lease-handoffs.lp b/lease-handoffs.lp
 new file mode 100644
-index 0000000..7204455
+index 0000000..ac53313
 --- /dev/null
 +++ b/lease-handoffs.lp
 @@ -0,0 +1,16 @@
@@ -10,7 +10,7 @@ index 0000000..7204455
 +    if f then
 +        for line in f:lines() do
 +            if line:match('^T %d+$') then
-+                mg.write('T ' .. math.max(0, os.time() - tonumber(line:sub(3))) .. '\n')
++                mg.write('T ' .. (os.time() - tonumber(line:sub(3))) .. '\n')
 +            elseif line:match('^[%d%.]+ [%d%.]+ %d+ %d+$')
 +                or line:match('^R [%x:]+ [%d%.]+ %a+$') then
 +                mg.write(line .. '\n')
@@ -21,16 +21,16 @@ index 0000000..7204455
 +end
 +?>
 diff --git a/scripts/js/queries.js b/scripts/js/queries.js
-index ee31f75..c0118b3 100644
+index ee31f75..e02f07a 100644
 --- a/scripts/js/queries.js
 +++ b/scripts/js/queries.js
-@@ -154,6 +154,32 @@ function requestQueryPage(url, params) {
+@@ -154,6 +154,33 @@ function requestQueryPage(url, params) {
    return queryRequest;
  }
  
 +
 +async function leaseHandoffWindows() {
-+  const response = await fetch("lease-handoffs", { cache: "no-store" });
++  const response = await fetch(document.body.dataset.webhome + "lease-handoffs", { cache: "no-store" });
 +  if (!response.ok || response.redirected) throw new Error("Cannot load DHCP handoffs");
 +  const windows = new Map();
 +  windows.reservations = new Map();
@@ -49,6 +49,7 @@ index ee31f75..c0118b3 100644
 +    if (!windows.has(target)) windows.set(target, []);
 +    windows.get(target).push({ ip, start: Number(start), end: Number(end) });
 +  }
++  if (!Number.isFinite(windows.age) || windows.age > 60) throw new Error("The lease monitor has no current checkpoint.");
 +  return windows;
 +}
 +
@@ -57,10 +58,34 @@ index ee31f75..c0118b3 100644
  function querySource() {
    const url = new URL(queryAPIURL, document.baseURI);
    const { upstream } = queryScopes[queryScope];
-@@ -186,10 +212,22 @@ async function collectQueryRows(request, source, requestId) {
+@@ -186,50 +213,68 @@ async function collectQueryRows(request, source, requestId) {
      params.set("from", range.start);
      params.set("until", range.end);
    }
+-  let page;
+-  let start = 0;
+-  do {
+-    page = await requestQueryPage(url.href, {
+-      ...request,
+-      start,
+-      length: queryBatchSize,
+-      order: grouped ? [{ column: 0, dir: "desc" }] : request.order,
+-      cursor: page?.cursor,
+-    });
+-
+-    if (requestId !== queryRequestId) return;
+-    if (beginningOfTime === null && start === 0) initDateRangePicker(page);
+-
+-    for (const query of page.queries) {
+-      if (source.filterLocally && parseQueryStatus(query).blocked !== source.blocked) continue;
+-      if (!grouped) {
+-        rows.push(query);
+-        continue;
+-      }
++  if (source.windows && !grouped && !url.searchParams.has("from")) {
++    const end = Number(url.searchParams.get("until") || Date.now() / 1000);
++    url.searchParams.set("from", Math.floor(end - 86400));
++  }
 +  const windows = source.windows || [null];
 +  for (const window of windows) {
 +    const pageUrl = new URL(url);
@@ -73,31 +98,76 @@ index ee31f75..c0118b3 100644
 +      pageUrl.searchParams.set("until", end);
 +      if (start < Date.now() / 1000 - 86400) pageUrl.searchParams.set("disk", "true");
 +    }
-   let page;
-   let start = 0;
-   do {
--    page = await requestQueryPage(url.href, {
-+    page = await requestQueryPage(pageUrl.href, {
-       ...request,
-       start,
-       length: queryBatchSize,
-@@ -201,6 +239,7 @@ async function collectQueryRows(request, source, requestId) {
-     if (beginningOfTime === null && start === 0) initDateRangePicker(page);
++    let page;
++    let start = 0;
++    do {
++      page = await requestQueryPage(pageUrl.href, {
++        ...request,
++        start,
++        length: queryBatchSize,
++        order: grouped ? [{ column: 0, dir: "desc" }] : request.order,
++        cursor: page?.cursor,
++      });
  
-     for (const query of page.queries) {
-+      if (window && (query.client?.ip !== window.ip || query.time < window.start || query.time > window.end)) continue;
-       if (source.filterLocally && parseQueryStatus(query).blocked !== source.blocked) continue;
-       if (!grouped) {
-         rows.push(query);
-@@ -230,6 +269,7 @@ async function collectQueryRows(request, source, requestId) {
-     $("#query-progress").text(start.toLocaleString() + " / " + page.recordsFiltered.toLocaleString() + " queries");
-   } while (page.queries.length > 0 && start < page.recordsFiltered);
+-      const { domain, type, client } = query;
+-      const hidden = domain === "hidden" || !client.ip || client.ip === "0.0.0.0";
+-      const id = hidden ? Symbol() : JSON.stringify([String(domain).toLowerCase(), type, client.ip]);
+-      const forwardedOrCached = ["FORWARDED", "CACHE", "CACHE_STALE"].includes(query.status);
+-      let existing = groups.get(id);
+-      if (existing) {
+-        existing.group.count++;
+-        existing.group.allForwardedOrCached &&= forwardedOrCached;
+-        existing.group.mixedStatus ||= existing.status !== query.status || existing.cname !== query.cname;
+-        existing.group.mixedDNSSEC ||= existing.dnssec !== query.dnssec;
+-      } else {
+-        existing = { ...query, group: { count: 1, allForwardedOrCached: forwardedOrCached, range, bins: new Array(queryChartBins).fill(0), mixedStatus: false, mixedDNSSEC: false } };
+-        groups.set(id, existing);
++      if (requestId !== queryRequestId) return;
++      if (beginningOfTime === null && start === 0) initDateRangePicker(page);
++
++      for (const query of page.queries) {
++        if (window && (query.client?.ip !== window.ip || query.time < window.start || query.time > window.end)) continue;
++        if (source.filterLocally && parseQueryStatus(query).blocked !== source.blocked) continue;
++        if (!grouped) {
++          rows.push(query);
++          continue;
++        }
++
++        const { domain, type, client } = query;
++        const hidden = domain === "hidden" || !client.ip || client.ip === "0.0.0.0";
++        const id = hidden ? Symbol() : JSON.stringify([String(domain).toLowerCase(), type, client.ip]);
++        const forwardedOrCached = ["FORWARDED", "CACHE", "CACHE_STALE"].includes(query.status);
++        let existing = groups.get(id);
++        if (existing) {
++          existing.group.count++;
++          existing.group.allForwardedOrCached &&= forwardedOrCached;
++          existing.group.mixedStatus ||= existing.status !== query.status || existing.cname !== query.cname;
++          existing.group.mixedDNSSEC ||= existing.dnssec !== query.dnssec;
++        } else {
++          existing = { ...query, group: { count: 1, allForwardedOrCached: forwardedOrCached, range, bins: new Array(queryChartBins).fill(0), mixedStatus: false, mixedDNSSEC: false } };
++          groups.set(id, existing);
++        }
++        // The API includes the end timestamp. Put that endpoint in the last slot.
++        const slot = range.width ? Math.floor((query.time - range.start) / range.width) : 0;
++        existing.group.bins[Math.max(0, Math.min(queryChartBins - 1, slot))]++;
+       }
+-      // The API includes the end timestamp. Put that endpoint in the last slot.
+-      const slot = range.width ? Math.floor((query.time - range.start) / range.width) : 0;
+-      existing.group.bins[Math.max(0, Math.min(queryChartBins - 1, slot))]++;
+-    }
+ 
+-    start += page.queries.length;
+-    $("#query-progress").text(start.toLocaleString() + " / " + page.recordsFiltered.toLocaleString() + " queries");
+-  } while (page.queries.length > 0 && start < page.recordsFiltered);
++      start += page.queries.length;
++      $("#query-progress").text(start.toLocaleString() + " / " + page.recordsFiltered.toLocaleString() + " queries");
++    } while (page.queries.length > 0 && start < page.recordsFiltered);
  
 +  }
    return grouped ? [...groups.values()] : rows;
  }
  
-@@ -259,11 +299,11 @@ function queryActivityChart({ bins, range }) {
+@@ -259,11 +304,11 @@ function queryActivityChart({ bins, range }) {
  function sortQueryGroups(rows, order) {
    const fields = [
      row => row.time,
@@ -111,7 +181,7 @@ index ee31f75..c0118b3 100644
    ];
    return [...rows].sort((a, b) => {
      for (const { column, dir } of order) {
-@@ -376,7 +416,13 @@ async function loadQueryRows(displayRequest, callback) {
+@@ -376,7 +421,13 @@ async function loadQueryRows(displayRequest, callback) {
      const source = querySource();
      const filters = new URL(source.url).searchParams;
      updateClientHeading(filters);
@@ -126,7 +196,7 @@ index ee31f75..c0118b3 100644
        const key = JSON.stringify([source.url, queryScope, request.search, request.columns, grouped ? null : request.order]);
        if (querySnapshot?.key !== key) {
          status.text(grouped ? "Grouping queries…" : "Filtering queries…");
-@@ -384,8 +430,8 @@ async function loadQueryRows(displayRequest, callback) {
+@@ -384,8 +435,8 @@ async function loadQueryRows(displayRequest, callback) {
          if (id !== queryRequestId) return;
          querySnapshot = { key, rows };
        }
@@ -137,7 +207,7 @@ index ee31f75..c0118b3 100644
        if (liveMode) utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
        updateClientHeading(filters, rows);
        callback({
-@@ -935,6 +981,7 @@ $(() => {
+@@ -935,6 +986,7 @@ $(() => {
  });
  
  function resetQuerySnapshot() {
@@ -146,16 +216,16 @@ index ee31f75..c0118b3 100644
    querySnapshot = undefined;
  }
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 4ea7886..15a9905 100644
+index 4ea7886..3721ce7 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
-@@ -178,9 +178,33 @@ function renderHostnameCLID(data, type) {
+@@ -178,9 +178,34 @@ function renderHostnameCLID(data, type) {
  }
  
  // FTL timestamps each ten-minute history bucket at its midpoint.
 +
 +async function leaseHandoffWindows() {
-+  const response = await fetch("lease-handoffs", { cache: "no-store" });
++  const response = await fetch(document.body.dataset.webhome + "lease-handoffs", { cache: "no-store" });
 +  if (!response.ok || response.redirected) throw new Error("Cannot load DHCP handoffs");
 +  const windows = new Map();
 +  windows.reservations = new Map();
@@ -174,22 +244,31 @@ index 4ea7886..15a9905 100644
 +    if (!windows.has(target)) windows.set(target, []);
 +    windows.get(target).push({ ip, start: Number(start), end: Number(end) });
 +  }
++  if (!Number.isFinite(windows.age) || windows.age > 60) throw new Error("The lease monitor has no current checkpoint.");
 +  return windows;
 +}
 +
  function loadLeaseActivity() {
 -  $.getJSON(document.body.dataset.apiurl + "/history/clients", { N: 0 })
 -    .done(({ history, clients }) => {
-+  Promise.all([leaseHandoffWindows(), $.getJSON(document.body.dataset.apiurl + "/history/clients", { N: 0 })])
++  Promise.all([leaseHandoffWindows().catch(() => null), $.getJSON(document.body.dataset.apiurl + "/history/clients", { N: 0 })])
 +    .then(([moves, { history, clients }]) => {
        for (const [ip, client] of Object.entries(clients || {})) {
          if (client?.name) dnsClientNames.set(ip, client.name);
        }
-@@ -199,9 +223,23 @@ function loadLeaseActivity() {
+@@ -199,9 +224,31 @@ function loadLeaseActivity() {
            if (client) client.bins[hour] += count;
          }
        }
-+      for (const [target, windows] of moves) {
++      let note = document.getElementById("lease-history-note");
++      if (!note) {
++        note = document.createElement("p");
++        note.id = "lease-history-note";
++        document.getElementById("StaticDHCPTable").before(note);
++      }
++      note.textContent = moves ? "" : "Lease monitor unavailable. Charts show activity by IP address.";
++      note.hidden = Boolean(moves);
++      for (const [target, windows] of moves || []) {
 +        const bins = new Array(24).fill(0);
 +        for (const { timestamp, data } of history) {
 +          const hour = Math.floor((timestamp - range.start) / range.width);
@@ -210,7 +289,7 @@ index 4ea7886..15a9905 100644
        leaseActivity ??= new Map();
        refreshStaticDetails();
        dhcpLeasesTable.rows().invalidate("data").draw(false);
-@@ -888,6 +926,26 @@ async function writeDHCP(key, value) {
+@@ -888,6 +935,24 @@ async function writeDHCP(key, value) {
    const latest = await read();
    if (latest.join("\n") !== before)
      throw new Error("DHCP reservations changed on the server. Reload the page before editing.");
@@ -226,12 +305,10 @@ index 4ea7886..15a9905 100644
 +    if (next.get(mac) !== ip) changedIPs.push({ mac, ip });
 +  if (changedIPs.length) {
 +    const checkpoint = await leaseHandoffWindows();
-+    if (!Number.isFinite(checkpoint.age) || checkpoint.age > 60)
-+      throw new Error("The lease history monitor has not checked in. Try again shortly.");
 +    for (const { mac, ip } of changedIPs) {
 +      const record = checkpoint.reservations.get(mac);
 +      if (record?.ip !== ip) throw new Error("The previous reservation change is being recorded. Try again shortly.");
-+      if (record.pending) throw new Error("Waiting for this device to lease its reserved IP before another address change.");
++      if (record.pending && next.has(mac)) throw new Error("Waiting for this device to lease its reserved IP before another address change.");
 +    }
 +  }
    const added = visibleHosts(value, latest);
