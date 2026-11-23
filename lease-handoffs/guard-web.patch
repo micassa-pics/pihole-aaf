@@ -14,11 +14,21 @@ diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
 index 3721ce7..228edf4 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
-@@ -930,44 +930,8 @@ async function writeDHCP(key, value) {
+@@ -930,54 +930,8 @@ async function writeDHCP(key, value) {
        data: JSON.stringify({ config: { dhcp: { [key]: value } } }) });
      return;
    }
--  const read = async () => (await $.getJSON(api + "/config/dhcp?detailed=true")).config.dhcp.hosts.value;
+-  const read = async () => {
+-    for (let attempt = 0; ; attempt++) {
+-      try {
+-        return (await $.getJSON(api + "/config/dhcp?detailed=true")).config.dhcp.hosts.value;
+-      } catch (error) {
+-        // FTL may restart its web listener after changing a static rule.
+-        if (attempt === 9 || ![0, 502, 503, 504].includes(error.status)) throw error;
+-        await new Promise(resolve => setTimeout(resolve, 350));
+-      }
+-    }
+-  };
    const before = savedDHCPValues.get(document.getElementById("dhcp-hosts"));
 -  const latest = await read();
 -  if (latest.join("\n") !== before)
@@ -60,7 +70,7 @@ index 3721ce7..228edf4 100644
  }
  
  async function withDHCPSave(action) {
-@@ -1030,8 +994,8 @@ function saveHosts(manual = false) {
+@@ -1040,8 +994,8 @@ function saveHosts(manual = false) {
        if (merged.join("\n") !== stored.join("\n")) await writeDHCP("hosts", merged);
        savedDHCPValues.set(field, merged.join("\n"));
        pendingHostDeletes = queued;
@@ -70,7 +80,7 @@ index 3721ce7..228edf4 100644
        throw error;
      }
    });
-@@ -1068,6 +1032,7 @@ $(document).on("click", "#apply-dhcp-deletes", () => withDHCPSave(async () => {
+@@ -1078,6 +1032,7 @@ $(document).on("click", "#apply-dhcp-deletes", () => withDHCPSave(async () => {
      await writeDHCP("hosts", remaining);
      savedDHCPValues.set(field, remaining.join("\n"));
      pendingHostDeletes = [];
@@ -78,7 +88,7 @@ index 3721ce7..228edf4 100644
    }
    if (pendingLeaseDeletes.size) {
      const { leases } = await $.getJSON(document.body.dataset.apiurl + "/dhcp/leases");
-@@ -1083,10 +1048,16 @@ $(document).on("click", "#apply-dhcp-deletes", () => withDHCPSave(async () => {
+@@ -1093,10 +1048,16 @@ $(document).on("click", "#apply-dhcp-deletes", () => withDHCPSave(async () => {
  }));
  
  function processDHCPConfig() {
@@ -99,7 +109,7 @@ index 3721ce7..228edf4 100644
        updateGatewaySummary(data.config.dhcp.router.value);
        configureLeaseTimes(data.config.dhcp);
        refreshExpirationBars();
-@@ -1096,10 +1067,10 @@ function processDHCPConfig() {
+@@ -1106,10 +1067,10 @@ function processDHCPConfig() {
        savedDHCPValues = new Map(Array.from(document.querySelectorAll("[data-key^='dhcp.']"),
          field => [field, dhcpValue(field)]));
        updatePendingDHCP();

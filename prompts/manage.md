@@ -1,15 +1,54 @@
 # Manage Pi-hole awesome-a-fyer
 
-Copy the entire block into your AI assistant. Choose **Check only** to compare versions without changing Pi-hole.
+## Install options
+
+Choose any combination of page patches.
+
+| Page | What it adds |
+| --- | --- |
+| Dashboard | Collapse sections. See query and client totals in the collapsed headings. |
+| DHCP | Work with active leases and static reservations in separate tables. Edit reservations and open the Query Log for a device. |
+| Query Log | Group repeated queries. See counts and activity charts. Filter for all, blocked, or allowed queries. |
+
+Add optional features as needed.
+
+| Feature | What it adds | What it needs |
+| --- | --- | --- |
+| Group pause | Pause blocking for selected groups or one IP address. Restore blocking when the timer ends. | A host service. You can add it independently of the page patches. |
+| Address history | Follow a device's DNS history when its IPv4 address changes. | The DHCP and Query Log patches, a lease monitor, and persistent state. On Docker, FTL still serves the Admin UI directly. |
+| Guarded reservation saves | Check for conflicting edits and record saves for recovery. | Address history. On Docker, the guard and Nginx run inside the same Pi-hole container. Select this option to add Nginx. |
+
+## Actions
+
+- **Check only** compares installed files and versions with the published patches. It leaves Pi-hole unchanged.
+- **Install or update** applies the selected changes. It skips current patches and keeps a recovery copy.
+- **Undo** removes the selected patches. The prompt checks which optional features depend on them before deployment.
+
+Copy the entire block below into your AI assistant. Provide your Pi-hole Admin URL and how to reach the device.
 
 ```text
-First ask me which Pi-hole pages I want: Dashboard, DHCP, Query Log, or any combination.
-Also ask if I want the optional sidebar group picker. Follow group-pause/README.md from the same verified commit for the selected action. Verify the worker and loader separately.
-Ask if I want automatic address handoffs. This option needs both DHCP and Query Log. Follow lease-handoffs/README.md from the verified commit. Check the worker and web.patch separately. Undo the handoff web patch in staging before checking or updating its base patches. For Check only, make no changes to the live installation.
-For guarded reservation saves, follow lease-handoffs/GUARD.md. Check the writer, private state, same-origin proxy route, UI script and guard-web.patch. Apply the guard overlay last and reverse it first. Confirm that the existing LAN, TLS and authentication rules still apply. Check DNS and the admin URL after a deployment change.
-Then ask which action I want: Check only, Install/update, or Undo.
-Use any choice I already gave you. Wait for both choices before you
-download a patch or connect to a device. Work only on the selected pages.
+Ask which pages I want. Offer Dashboard, DHCP, Query Log, or any combination.
+Ask whether I want the group pause picker. For that option, follow
+group-pause/README.md at the verified commit. Check the worker and loader separately.
+
+Ask whether I want address history. This option needs DHCP and Query Log.
+Follow lease-handoffs/README.md at the verified commit. Check the worker
+and web.patch separately. Reverse the handoff patch in staging before
+checking or updating either base patch.
+
+If I choose address history, ask whether I want guarded reservation saves.
+Add the guard only if I choose it. On Docker, add Nginx inside the same
+Pi-hole container. With address history alone, keep Pi-hole's built-in
+web listener. For the guard, follow lease-handoffs/GUARD.md. Check the
+writer, state, proxy route, UI script, and guard-web.patch. Apply the
+guard overlay last. Reverse it first. Preserve the existing LAN, TLS,
+and authentication rules. Check DNS and the Admin URL after deployment.
+
+Ask which action I want. Offer Check only, Install/update, or Undo.
+Use the choices I already gave you. Confirm the selection before you
+download files or connect to the device. Work on the selected features.
+Check only uses read-only checks. Before Undo, check which installed
+features depend on the selected patches. Confirm any dependent removals.
 
 Find my Pi-hole
 
@@ -30,7 +69,7 @@ webhome, and any reverse-proxy prefix.
 Find where to make a lasting change:
 - Device, VM, or LXC: Find the files in the OS that serves Pi-hole.
 - Docker, Podman, Compose, or NAS app: Identify the service, image,
-  and mounts. Package Docker changes in the Pi-hole image. Run the patch processes in that same container. For address handoffs, use lease-handoffs/docker/README.md. Only propose a second container if you verify a technical requirement that prevents this design. Explain the requirement first. A mount for /etc/pihole alone does not save web files.
+  and mounts. Package Docker changes in the Pi-hole image. Run the patch processes in that same container. If I selected DHCP and Query Log, use the appropriate example in lease-handoffs/docker/README.md. For page-only installs with a different selection, apply just the selected page patches to the image. If I selected the guard, add its Compose override and set the exact admin origins and allowed LAN addresses. Record the existing FTL web listener before changing it. Restore that listener when removing the guard. Keep the existing TLS and network rules. Only propose a second container if you verify a technical requirement that prevents this design. Explain the requirement first. A mount for /etc/pihole alone does not save web files.
 - Kubernetes, Helm, GitOps, or another managed system: Find the
   deployment definition. Identify each replica that serves the UI.
 

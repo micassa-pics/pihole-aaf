@@ -16,7 +16,7 @@ If the monitor stops, the DHCP charts show standard per-IP counts with a notice.
 
 ## Docker install
 
-Build the monitor, writer, proxy and page patches into the Pi-hole image. Run them in the same Pi-hole container. [Single-container installation](docker/README.md)
+Choose address history with Pi-hole's built-in web server, or add guarded saves with Nginx. Both choices run in the same Pi-hole container. [Single-container installation](docker/README.md)
 
 ## Native install and check
 

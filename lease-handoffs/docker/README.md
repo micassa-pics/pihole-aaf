@@ -1,15 +1,44 @@
 # Run handoffs inside Pi-hole
 
-The monitor, reservation writer, and web proxy run beside FTL in one container. The monitor reads leases and reservations. The writer serializes edits. Each process runs with a non-root identity. The monitor and writer have separate filesystem roots. The guard uses the Pi-hole API on loopback.
+Choose the features you want to install. Each choice uses the same Dockerfile and runs one Pi-hole container. Address handoffs add a monitor. Guarded saves also add the reservation writer and the Nginx web proxy.
 
-1. Use the repository root as the build context. Set `PIHOLE_IMAGE` to the exact tested upstream tag or digest. The Dockerfile applies the DHCP, Query Log, handoff, and guard patches. Preserve other selected page patches in the same image. Include any site-specific overrides in a private final layer. Check that they match the expected versions.
+## Start from stock Docker
+
+Set `PIHOLE_IMAGE` to the tested stock release tag or digest. Set `PIHOLE_CONFIG` to the absolute configuration path on the Docker host. The Compose examples publish no host ports. Keep your existing network and port settings if you add the patch to an existing service.
+
+**DHCP and Query Log.** Use the base example. Pi-hole serves the Admin UI directly.
+
+```sh
+docker compose -f lease-handoffs/docker/compose.example.yaml up -d --build
+```
+
+**Add address history.** Set `HANDOFF_STATE` to a separate absolute path on the Docker host. Give the directory UID 64321 and GID 1000 with mode 0700. Create `published` inside it with the same owner and mode 0750. Add the handoff Compose file. Pi-hole still serves the Admin UI directly.
+
+```sh
+docker compose -f lease-handoffs/docker/compose.example.yaml \
+  -f lease-handoffs/docker/compose.handoffs.yaml up -d --build
+```
+
+**Add guarded saves.** Create `ipc` in the state directory with the same owner and mode 0750. Include both optional Compose files. Nginx sends regular admin requests to FTL on `127.0.0.1:8080`. It sends reservation saves to the private guard socket. For LAN access, set `HANDOFF_ADMIN_CIDRS` to the client addresses or CIDRs that Nginx sees. Set `HANDOFF_ORIGINS` to the exact browser origins, including the scheme and any non-default port. By default, the proxy accepts only loopback traffic. Keep Pi-hole authentication enabled. To keep an existing TLS configuration, supply your Nginx configuration and preserve the guard location.
+
+```sh
+docker compose -f lease-handoffs/docker/compose.example.yaml \
+  -f lease-handoffs/docker/compose.handoffs.yaml \
+  -f lease-handoffs/docker/compose.guard.yaml up -d --build
+```
+
+Use the same Compose files for updates and status checks. Before removing the guard, review any interrupted saves and pending moves. Then switch to the handoffs image and remove the guard-only mounts and settings. Restore the previous FTL web listener and the existing network access rules. Keep the private journal for rollback.
+
+## Add handoffs to an existing deployment
+
+1. Use the repository root as the build context. Set `PIHOLE_IMAGE` to the exact tested upstream tag or digest. Select `pages`, `handoffs`, or `guarded`. The example below selects guarded saves. Preserve other selected page patches in the same image. Include any site-specific overrides in a private final layer. Check that they match the expected versions.
 
    ```sh
-   docker build -f lease-handoffs/docker/Dockerfile \
+   docker build --target guarded -f lease-handoffs/docker/Dockerfile \
      --build-arg PIHOLE_IMAGE="$PIHOLE_IMAGE" -t local/pihole-handoffs:tested .
    ```
 
-2. Keep your current Pi-hole network, capabilities, config and gravity volumes. Set `FTLCONF_webserver_port` to `127.0.0.1:8080`. Set `HANDOFF_ORIGINS` to a space-separated list of exact external admin origins. Give the proxy read access to its configuration. Use `error_log stderr warn;` for Docker logs. Supply your existing Nginx server configuration at `/etc/nginx/nginx.conf`. Preserve the LAN and TLS rules. Include `/etc/nginx/guard.location` in the same server block. Send ordinary requests to the loopback listener. Run Nginx in the foreground with its PID and temporary files in a directory writable by UID 64322. Check that the container permits this UID to bind the admin port.
+2. Keep your current Pi-hole network, capabilities, config and gravity volumes. Set `FTLCONF_webserver_port` to `127.0.0.1:8080`. Set `HANDOFF_ORIGINS` and `HANDOFF_ADMIN_CIDRS` as above. For a custom Nginx configuration at `/etc/nginx/nginx.conf`, preserve the LAN and TLS rules. Give UID 64322 read access to that file and write access to the PID and temporary file directories. Include `/etc/nginx/guard.location` and send regular requests to the loopback listener. Check that the container permits UID 64322 to bind the admin port.
 3. Give the state directory to the dedicated helper UID (default 64321) and the Pi-hole group (default 1000). Use mode 0700. Within it, create `published` and `ipc` with the same owner and mode 0750. Mount the same state directory at both helper paths. Supply the config to the monitor read-only. Keep these mounts in the Pi-hole service.
 
 ```yaml
@@ -28,7 +57,7 @@ volumes:
 
 ## Check readiness and recover
 
-Docker reports unhealthy when DNS or a patch component fails. Run either check on its own to identify the failure. FTL can still serve DNS and DHCP when the monitor or guard is unavailable.
+The handoffs and guarded images add a patch health check. Run either check on its own to identify the failure. FTL can still serve DNS and DHCP when the monitor or guard is unavailable. The pages image uses Pi-hole's stock health check.
 
 ```sh
 docker exec pihole /usr/local/bin/health-handoffs dns

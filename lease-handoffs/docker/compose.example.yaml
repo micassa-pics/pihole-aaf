@@ -1,0 +1,12 @@
+services:
+  pihole:
+    image: ${PIHOLE_PATCH_IMAGE:-local/pihole-awesome-a-fyer:pages}
+    build:
+      context: ../..
+      dockerfile: lease-handoffs/docker/Dockerfile
+      target: pages
+      args:
+        PIHOLE_IMAGE: ${PIHOLE_IMAGE:?Set PIHOLE_IMAGE to the tested Pi-hole tag or digest}
+    restart: unless-stopped
+    volumes:
+      - ${PIHOLE_CONFIG:?Set PIHOLE_CONFIG to an absolute host path}:/etc/pihole

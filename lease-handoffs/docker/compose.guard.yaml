@@ -1,0 +1,13 @@
+services:
+  pihole:
+    image: ${PIHOLE_PATCH_IMAGE:-local/pihole-awesome-a-fyer:guarded}
+    build:
+      target: guarded
+    environment:
+      FTLCONF_webserver_port: "127.0.0.1:8080"
+      HANDOFF_ORIGINS: ${HANDOFF_ORIGINS:-http://127.0.0.1}
+      HANDOFF_ADMIN_CIDRS: ${HANDOFF_ADMIN_CIDRS:-}
+    volumes:
+      - ${PIHOLE_CONFIG:?Set PIHOLE_CONFIG to an absolute host path}:/opt/guard/config:ro
+      - ${HANDOFF_STATE:?Set HANDOFF_STATE to an absolute host path}:/opt/guard/state
+      - ${HANDOFF_STATE}/ipc:/run/reservation-guard:ro

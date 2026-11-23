@@ -1,0 +1,9 @@
+services:
+  pihole:
+    image: ${PIHOLE_PATCH_IMAGE:-local/pihole-awesome-a-fyer:handoffs}
+    build:
+      target: handoffs
+    volumes:
+      - ${PIHOLE_CONFIG:?Set PIHOLE_CONFIG to an absolute host path}:/opt/monitor/config:ro
+      - ${HANDOFF_STATE:?Set HANDOFF_STATE to an absolute host path}:/opt/monitor/state
+      - ${HANDOFF_STATE}/published:/run/pihole-lease-handoffs:ro
