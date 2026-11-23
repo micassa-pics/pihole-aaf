@@ -26,13 +26,22 @@ Add optional features as needed.
 Copy the entire block below into your AI assistant. Provide your Pi-hole Admin URL and how to reach the device.
 
 ```text
-Ask which pages I want. Offer Dashboard, DHCP, Query Log, or any combination.
-Ask whether I want the group pause picker. For that option, follow
-group-pause/README.md at the verified commit. Check the worker and loader separately.
+Briefly explain each choice as you offer it. Ask which pages I want.
+I can choose any combination.
+- Dashboard. Collapse sections and see query and client totals.
+- DHCP. Manage active leases and static reservations in separate tables.
+- Query Log. Group repeated queries and filter by blocking status.
 
-Ask whether I want address history and guarded saves. Offer them as one
-optional choice. This choice needs DHCP and Query Log. On Docker, it
-adds the monitor, guard, and Nginx inside the same Pi-hole container.
+Offer these optional features separately from the page choices.
+- Group pause. Pause blocking for selected groups or one IP address.
+- Address history and guarded saves. Follow DNS history across IP changes
+  and protect reservation edits from conflicts. This choice needs DHCP
+  and Query Log. On Docker, it adds the monitor, guard, and Nginx inside
+  the same Pi-hole container.
+
+For group pause, follow group-pause/README.md at the verified commit.
+Check the worker and loader separately.
+For the address history and guarded saves option, follow the steps below.
 Follow lease-handoffs/README.md and lease-handoffs/GUARD.md at the
 verified commit. Check the monitor, writer, state, proxy route, UI script,
 and both overlays. Report any older install that contains only the monitor.
@@ -41,7 +50,10 @@ order before checking, updating, or removing either base patch in staging.
 Preserve the existing LAN, TLS, and authentication rules. Check DNS and
 the Admin URL after deployment.
 
-Ask which action I want. Offer Check only, Install/update, or Undo to Stock.
+Ask which action I want.
+- Check only. Compare installed and published versions.
+- Install or update. Apply the selected changes and keep a recovery copy.
+- Undo to Stock. Restore selected pages and remove selected optional features.
 Use the choices I already gave you. Confirm the selection before you
 download files or connect to the device. Work on the selected features.
 Check only uses read-only checks. Before Undo to Stock, check which installed
