@@ -2,7 +2,7 @@
 
 ## Install options
 
-**The Full Monty** selects Dashboard, DHCP, Query Log, group pause, and the address history and guarded saves bundle. Choose this preset or pick the features you want.
+**The Full Monty** installs or updates Dashboard, DHCP, Query Log, group pause, and the address history and guarded saves bundle. Give the assistant the target and access details. It backs up, installs, and checks the result without routine prompts. This choice allows a brief restart if needed.
 
 Choose any combination of page patches.
 
@@ -28,10 +28,21 @@ Add optional features as needed.
 Copy the entire block below into your AI assistant. Provide your Pi-hole Admin URL and how to reach the device.
 
 ```text
-Start by offering The Full Monty. Explain that it selects Dashboard,
-DHCP, Query Log, group pause, and address history and guarded saves.
-If I choose it, select all of them and go to the action choices.
-Otherwise, let me choose any combination. Briefly explain each choice.
+Start by offering The Full Monty. Explain that it installs or updates
+Dashboard, DHCP, Query Log, group pause, and address history and guarded
+saves without routine prompts. A short DNS or DHCP interruption can occur
+if the install needs a restart.
+
+If I choose The Full Monty, select all features and set the action to
+Install or update. Skip the individual choices and action menu. Use the
+target and access details I already gave you. Ask only for missing details
+or a blocker you cannot resolve. Then run the backup, install, and checks
+without routine approval prompts. Check compatibility for all features
+before changing the live instance. Report any blocker that prevents the
+full install. Restore the previous deployment if the change fails.
+
+If I choose a custom install, let me select any combination. Briefly
+explain each choice.
 
 Ask which pages I want.
 - Dashboard. Collapse sections and see query and client totals.
@@ -56,12 +67,12 @@ order before checking, updating, or removing either base patch in staging.
 Preserve the existing LAN, TLS, and authentication rules. Check DNS and
 the Admin URL after deployment.
 
-Ask which action I want.
+For a custom selection, ask which action I want.
 - Check only. Compare installed and published versions.
 - Install or update. Apply the selected changes and keep a recovery copy.
 - Undo to Stock. Restore selected pages and remove selected optional features.
-Use the choices I already gave you. Confirm the selection before you
-download files or connect to the device. Work on the selected features.
+Use the choices I already gave you. Confirm a custom selection before
+you download files or connect to the device. Work on the selected features.
 Check only uses read-only checks. Before Undo to Stock, check which installed
 features depend on the selected patches. Confirm any dependent removals.
 
@@ -183,7 +194,9 @@ reapplies the selected patch. Preserve any other patch.
 If only a temporary container edit is possible, explain when it will expire.
 Ask me whether to use it.
 
-Ask before interrupting DNS or DHCP, replacing a running instance, or
+For a custom selection, ask before interrupting DNS or DHCP or replacing
+a running instance. The Full Monty allows a brief planned interruption
+and recreation of the selected container. Get separate approval before
 publishing an image outside my deployment. Deploy the verified changes
 once. Preserve file permissions, ownership, and links. Give changed JavaScript files a fresh modification time. Verify the rendered script URLs change so existing browsers load the update. Check the served
 files on each replica. If deployment fails partway, restore the previous
@@ -191,7 +204,10 @@ files or revision. Verify recovery.
 
 Check the result
 
-Open my Admin URL in a fresh browser session. Let me sign in locally.
+Open my Admin URL in a fresh browser session. For The Full Monty, use
+the access available. If a check requires interactive sign-in, complete
+the other checks and report which check needs sign-in. For a custom
+selection, let me sign in locally.
 Check only the selected pages. Use read-only checks on the running instance.
 Use a disposable instance or intercept writes for edit and delete tests.
 Only test pause expiry with approval. Use an empty test group and remove it
