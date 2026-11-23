@@ -1,0 +1,42 @@
+#!/bin/bash
+set -eu
+: "${HANDOFF_ORIGINS:?Set the external Pi-hole admin origins}"
+read -ra origins <<< "$HANDOFF_ORIGINS"
+origin_args=()
+for origin in "${origins[@]}"; do origin_args+=(--web-origin "$origin"); done
+uid=${HANDOFF_UID:-64321}
+gid=${PIHOLE_GID:-1000}
+
+# Each helper restarts independently. Keep DNS running if a helper fails.
+supervise() {
+    child=
+    trap 'trap - TERM INT; if [[ -n "$child" ]]; then kill -TERM "$child" 2>/dev/null || :; wait "$child" || :; fi; exit 0' TERM INT
+    while true; do
+        "$@" & child=$!
+        wait "$child" || :
+        echo "Pi-hole handoffs: $1 exited. Restarting in five seconds." >&2
+        sleep 5 & child=$!
+        wait "$child"
+    done
+}
+helpers=()
+stock=
+stop() {
+    trap - TERM INT QUIT HUP
+    for pid in "${helpers[@]}" ${stock:+"$stock"}; do kill -TERM "$pid" 2>/dev/null || :; done
+    wait || :
+}
+trap 'stop; exit 0' TERM INT QUIT HUP
+for service in monitor guard; do
+    mountpoint -q "/opt/$service/state" || { echo "Missing persistent $service state" >&2; exit 1; }
+done
+mountpoint -q /opt/monitor/config || { echo "Missing read-only monitor config" >&2; exit 1; }
+supervise env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin chroot /opt/monitor /usr/bin/python3 -IB /app/drop.py "$uid" "$gid" /app/worker.py & helpers+=($!)
+supervise env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin chroot /opt/guard /usr/bin/python3 -IB /app/drop.py "$uid" "$gid" /app/guard.py /state /state/ipc/guard.sock http://127.0.0.1:8080/api "${origin_args[@]}" & helpers+=($!)
+supervise env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin setpriv --reuid=64322 --regid="$gid" --clear-groups --no-new-privs nginx -e stderr -g 'daemon off;' & helpers+=($!)
+/usr/bin/start.sh "$@" & stock=$!
+status=0
+wait "$stock" || status=$?
+stock=
+stop
+exit "$status"

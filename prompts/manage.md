@@ -30,7 +30,7 @@ webhome, and any reverse-proxy prefix.
 Find where to make a lasting change:
 - Device, VM, or LXC: Find the files in the OS that serves Pi-hole.
 - Docker, Podman, Compose, or NAS app: Identify the service, image,
-  and mounts. A mount for /etc/pihole alone does not save web files.
+  and mounts. Package Docker changes in the Pi-hole image. Run the patch processes in that same container. For address handoffs, use lease-handoffs/docker/README.md. Only propose a second container if you verify a technical requirement that prevents this design. Explain the requirement first. A mount for /etc/pihole alone does not save web files.
 - Kubernetes, Helm, GitOps, or another managed system: Find the
   deployment definition. Identify each replica that serves the UI.
 

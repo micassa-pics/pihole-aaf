@@ -14,7 +14,11 @@ The reservation guard checks each device revision and serializes the Pi-hole wri
 
 If the monitor stops, the DHCP charts show standard per-IP counts with a notice. A filtered Query Log requires a current checkpoint. The ungrouped handoff view defaults to the last 24 hours. Set a start time for older queries. A pending move has no query rows until the device takes its address.
 
-## Install and check
+## Docker install
+
+Build the monitor, writer, proxy and page patches into the Pi-hole image. Run them in the same Pi-hole container. [Single-container installation](docker/README.md)
+
+## Native install and check
 
 1. Install the two page patches. Copy the admin web files to staging. From that directory, run the following with the path to this feature's patch.
 
@@ -25,27 +29,7 @@ If the monitor stops, the DHCP charts show standard per-IP counts with a notice.
 
 2. Locate the live `pihole.toml` and `dhcp.leases`. Confirm that the effective reservations match `dhcp.hosts`. Create a private state directory outside the Pi-hole config volume. Give the service user ownership and mode 0700. For upgrades, stop both services and copy their state there before restarting.
 3. Run `worker.py` with Python 3.11 or later. Mount the config directory read-only at `/config`. Create a separate publication directory outside the config volume. Give the monitor write access and the Pi-hole web service read access. For the guard overlay, mount this directory read-only in Pi-hole at `/run/pihole-lease-handoffs`. For the history-only overlay, use `/etc/pihole/lease-handoffs` as the read-only mount destination. Start the monitor at boot.
-4. On Docker or Podman, use the example below in the deployment project. Set the host paths, numeric IDs, and approved Python image for your host. On a dedicated Linux device or VM, use the included systemd service. Adjust its paths and IDs first. On an OpenWrt Docker host, the same sidecar can run alongside Pi-hole.
-
-   ```yaml
-   services:
-     lease-handoffs:
-       image: ${HANDOFF_PYTHON_IMAGE}
-       user: "${HANDOFF_UID}:${PIHOLE_GID}"
-       network_mode: none
-       read_only: true
-       cap_drop: [ALL]
-       security_opt: ["no-new-privileges:true"]
-       environment:
-         HANDOFF_PUBLISH: /publish
-       volumes:
-         - ${PIHOLE_CONFIG}:/config:ro
-         - ${HANDOFF_STATE}:/state:rw
-         - ${HANDOFF_PUBLISH_DIR}:/publish:rw
-         - ${HANDOFF_CODE}/worker.py:/app/worker.py:ro
-       command: ["python3", "-IB", "/app/worker.py"]
-       restart: unless-stopped
-   ```
+4. On a dedicated Linux device or VM, use the included systemd service. Adjust its paths and IDs first.
 
 5. For a guarded install, finish the [writer and proxy setup](GUARD.md) before deploying the page. Keep private state outside the Pi-hole config directory. Mount the public directory separately at `/publish` and set `HANDOFF_PUBLISH=/publish`. Verify that `view.txt` updates after recreating the Pi-hole container. Open a filtered Query Log. For a pending move, check the waiting message and the MAC on the next DHCP lease. The monitor keeps up to 91 days of intervals. Pi-hole controls query retention.
 
