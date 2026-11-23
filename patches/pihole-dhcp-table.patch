@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..351398e 100644
+index af99c0a..732d78b 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..351398e 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.43";
++  const version = "1.1.44";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -93,10 +93,10 @@ index af99c0a..351398e 100644
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});
 diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
-index 27adb7b..15307de 100644
+index 27adb7b..4ea7886 100644
 --- a/scripts/js/settings-dhcp.js
 +++ b/scripts/js/settings-dhcp.js
-@@ -9,8 +9,141 @@
+@@ -9,8 +9,156 @@
  
  "use strict";
  
@@ -111,6 +111,8 @@ index 27adb7b..15307de 100644
 +let staticDHCPTable = null;
 +let staticLeaseKeys = null;
 +let gatewayIP = "";
++let piHoleIP = "";
++let piHoleName = "Pi-hole";
 +const networkByIP = new Map();
 +const vendorsByMAC = new Map();
 +let networkRequest;
@@ -214,6 +216,19 @@ index 27adb7b..15307de 100644
 +  $(".lease-vendor-value", row).text(vendor || "—").attr("title", vendor || "Vendor unknown");
 +}
 +
++async function loadPiHoleIdentity() {
++  const api = document.body.dataset.apiurl;
++  const [routes, host] = await Promise.allSettled([
++    $.getJSON(api + "/network/gateway"), $.getJSON(api + "/info/host"),
++  ]);
++  const ipv4 = (routes.value?.gateway || []).filter(route => route.family === "inet");
++  const local = ipv4.flatMap(route => route.local || []).filter(ip => utils.validateIPv4(ip) && !ip.startsWith("127."));
++  piHoleIP = local.includes(location.hostname) ? location.hostname :
++    (ipv4.find(route => route.address === gatewayIP)?.local || []).find(ip => local.includes(ip)) || local[0] || "";
++  piHoleName = host.value?.host?.uname?.nodename || "Pi-hole";
++  if (piHoleIP) refreshStaticDetails();
++}
++
 +function updateGatewaySummary(address) {
 +  gatewayIP = utils.validateIPv4(address) && address !== "0.0.0.0" ? address : "";
 +  if (gatewayIP) loadNetworkDevices();
@@ -240,7 +255,7 @@ index 27adb7b..15307de 100644
  
  // DHCP leases tooltips
  $("body").tooltip({ selector: '[data-toggle="tooltip"]', container: "body" });
-@@ -22,121 +155,338 @@ function renderHostnameCLID(data, type) {
+@@ -22,121 +170,338 @@ function renderHostnameCLID(data, type) {
        return "<em>---</em>";
      }
  
@@ -658,7 +673,7 @@ index 27adb7b..15307de 100644
      lengthMenu: [
        [10, 25, 50, 100, -1],
        [10, 25, 50, 100, "All"],
-@@ -145,8 +495,12 @@ $(() => {
+@@ -145,8 +510,12 @@ $(() => {
        emptyTable: "No DHCP leases found.",
      },
      stateSave: true,
@@ -671,7 +686,7 @@ index 27adb7b..15307de 100644
        utils.stateSaveCallback("dhcp-leases-table", data);
      },
      stateLoadCallback() {
-@@ -156,79 +510,512 @@ $(() => {
+@@ -156,79 +525,512 @@ $(() => {
          return null;
        }
  
@@ -734,11 +749,8 @@ index 27adb7b..15307de 100644
 +function enableAddressCopy(cell) {
 +  if (!cell.text().trim() || cell.text().trim() === "*") return;
 +  cell.attr({ "data-copy-address": "", tabindex: 0, role: "button", title: "Copy address" });
- }
- 
--function delLease(ip) {
--  utils.disableAll();
--  toasts[ip] = utils.showAlert("info", "", "Deleting lease...", ip, null);
++}
++
 +async function copyLeaseValue() {
 +  const cell = $(this).closest("td");
 +  cell.find(".lease-copy-feedback").remove();
@@ -766,6 +778,20 @@ index 27adb7b..15307de 100644
 +  const feedback = $('<span class="lease-copy-feedback label label-info" role="status"></span>').appendTo(cell);
 +  feedback.text("Copied");
 +  setTimeout(() => feedback.remove(), 1200);
+ }
+ 
+-function delLease(ip) {
+-  utils.disableAll();
+-  toasts[ip] = utils.showAlert("info", "", "Deleting lease...", ip, null);
++function staticAddressCopyMode(row) {
++  if (!staticHostsReadOnly) {
++    row.find(".static-hostname").attr("contenteditable", "true");
++    row.find(".static-ipaddr").attr({ role: "button", tabindex: 0, title: "Edit reservation address" });
++  }
++  row.find(".static-ipaddr, .static-hwaddr").removeAttr("contenteditable");
++  const mac = row.find(".static-hwaddr");
++  mac.html($("<span>", { class: "lease-mac-value", text: mac.text() }));
++  if (!$("#StaticDHCPTable").hasClass("mac-collapsed")) enableAddressCopy(mac);
 +}
  
 -  $.ajax({
@@ -792,15 +818,12 @@ index 27adb7b..15307de 100644
 -          toasts[ip]
 -        );
 -      }
-+function staticAddressCopyMode(row) {
-+  if (!staticHostsReadOnly) {
-+    row.find(".static-hostname").attr("contenteditable", "true");
-+    row.find(".static-ipaddr").attr({ role: "button", tabindex: 0, title: "Edit reservation address" });
-+  }
-+  row.find(".static-ipaddr, .static-hwaddr").removeAttr("contenteditable");
-+  const mac = row.find(".static-hwaddr");
-+  mac.html($("<span>", { class: "lease-mac-value", text: mac.text() }));
-+  if (!$("#StaticDHCPTable").hasClass("mac-collapsed")) enableAddressCopy(mac);
++function deleteLease() {
++  const ip = $(this).attr("data-del-ip");
++  if (!globalThis.confirm("Queue deletion of the active DHCP lease for " + ip + "?")) return;
++  pendingLeaseDeletes.set(ip, leasesByIP.get(ip));
++  dhcpLeasesTable.clear().rows.add(dynamicLeases()).draw(false);
++  updatePendingDHCP();
 +}
  
 -      // Clear selection after deletion
@@ -817,14 +840,6 @@ index 27adb7b..15307de 100644
 -        toasts[ip]
 -      );
 -      console.log(exception); // eslint-disable-line no-console
-+function deleteLease() {
-+  const ip = $(this).attr("data-del-ip");
-+  if (!globalThis.confirm("Queue deletion of the active DHCP lease for " + ip + "?")) return;
-+  pendingLeaseDeletes.set(ip, leasesByIP.get(ip));
-+  dhcpLeasesTable.clear().rows.add(dynamicLeases()).draw(false);
-+  updatePendingDHCP();
-+}
-+
 +async function delLease(ip) {
 +  const toast = utils.showAlert("info", "", "Deleting lease...", ip, null);
 +  let response;
@@ -882,7 +897,7 @@ index 27adb7b..15307de 100644
 +  updatePendingDHCP();
 +  if (staticLeaseKeys === null) return;
 +
-+  const keys = new Set(gatewayIP ? ["ip:" + gatewayIP] : []);
++  const keys = new Set([gatewayIP, piHoleIP].filter(Boolean).map(ip => "ip:" + ip));
 +  for (const line of lines) {
 +    for (const part of line.split(",").map(token => token.trim())) {
 +      const ip = part.startsWith("[") || !part.includes(":") ? reservationIP(part) : "";
@@ -1040,8 +1055,8 @@ index 27adb7b..15307de 100644
 +
 +function dhcpValue(field) {
 +  return field.type === "checkbox" ? field.checked : field.value;
-+}
-+
+ }
+ 
 +const pendingLeaseDeletes = new Map();
 +let pendingHostDeletes = [];
 +let savingDHCP = false;
@@ -1058,8 +1073,8 @@ index 27adb7b..15307de 100644
 +
 +function hostLines(value) {
 +  return value.split("\n").filter(line => line.trim());
- }
- 
++}
++
 +function visibleHosts(stored, removed) {
 +  const lines = stored.slice();
 +  for (const line of removed) {
@@ -1231,7 +1246,7 @@ index 27adb7b..15307de 100644
      })
      .fail(data => {
        apiFailure(data);
-@@ -237,7 +1024,7 @@ function processDHCPConfig() {
+@@ -237,7 +1039,7 @@ function processDHCPConfig() {
  
  function parseStaticDHCPLine(line) {
    // Accepts: [hwaddr][,ipaddr][,hostname] (all optional, comma-separated, no advanced tokens)
@@ -1240,7 +1255,7 @@ index 27adb7b..15307de 100644
  
    // If the line is empty, return an object with empty fields
    if (!line.trim())
-@@ -264,7 +1051,7 @@ function parseStaticDHCPLine(line) {
+@@ -264,7 +1066,7 @@ function parseStaticDHCPLine(line) {
      // Advanced if the part is "infinite", "ignore" or a lease time value
      if (/^(infinite|ignore|\d+(w|W|d|D|h|H|m|M|s|S))$/u.test(part)) return "advanced";
  
@@ -1249,7 +1264,7 @@ index 27adb7b..15307de 100644
        if (part.startsWith("[") && part.endsWith("]")) {
          // Advanced if more than one IP was found
          if (ipaddr) return "advanced";
-@@ -300,17 +1087,50 @@ function parseStaticDHCPLine(line) {
+@@ -300,17 +1102,50 @@ function parseStaticDHCPLine(line) {
    };
  }
  
@@ -1306,7 +1321,7 @@ index 27adb7b..15307de 100644
    const nameValid = !hostname || utils.validateHostnameDHCP(hostname);
    if (!macValid || !ipValid || !nameValid) {
      utils.showAlert(
-@@ -323,33 +1143,42 @@ $(document).on("click", ".save-static-row", function () {
+@@ -323,33 +1158,42 @@ $(document).on("click", ".save-static-row", function () {
    }
  
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1367,7 +1382,7 @@ index 27adb7b..15307de 100644
  
    // Get the original values
    const originalLine = row.attr("data-original-line");
-@@ -369,16 +1198,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -369,16 +1213,15 @@ $(document).on("click", ".cancel-static-row", function () {
    // Trigger "blur" event to remove highlight colors and titles from all cells on this row
    row.find(".static-hwaddr, .static-ipaddr, .static-hostname").blur();
  
@@ -1390,7 +1405,7 @@ index 27adb7b..15307de 100644
    }
  });
  
-@@ -386,6 +1214,15 @@ $(document).on("click", ".cancel-static-row", function () {
+@@ -386,6 +1229,15 @@ $(document).on("click", ".cancel-static-row", function () {
  $(document).on("click", ".delete-static-row", function () {
    const rowIdx = Number.parseInt($(this).data("row"), 10);
    const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1406,7 +1421,7 @@ index 27adb7b..15307de 100644
    lines.splice(rowIdx, 1);
    $("#dhcp-hosts").val(lines.join("\n"));
    // Hide the tooltip
-@@ -393,135 +1230,394 @@ $(document).on("click", ".delete-static-row", function () {
+@@ -393,135 +1245,409 @@ $(document).on("click", ".delete-static-row", function () {
    renderStaticDHCPTable();
  });
  
@@ -1570,12 +1585,16 @@ index 27adb7b..15307de 100644
 +  });
 +
 +  // Keep the gateway above drafts and outside DataTables sorting, filtering, and paging.
-+  const pinned = $('<tbody id="static-gateway" aria-label="Network gateway"></tbody>').insertBefore(staticDHCPTable.table().body());
++  const pinned = $('<tbody id="static-gateway" aria-label="Gateway and Pi-hole"></tbody>').insertBefore(staticDHCPTable.table().body());
 +  table.on("draw.dt", () => {
 +    const profile = pinned.data("profile");
 +    if (profile && pinned.find(".gateway-label-editor").length && pinned.find("tr").attr("data-id") === profile.ip) return;
 +    pinned.empty();
 +    if (profile) pinned.append(gatewayRow(profile));
++    const server = pinned.data("server");
++    if (server && server.ip !== gatewayIP) {
++      pinned.append(networkRoleRow(server, $("<td>").text(server.name), "Pi-hole", "fas fa-server"));
++    }
 +  });
 +  table.on("column-reorder.dt", () => queueMicrotask(() => staticDHCPTable.draw(false)));
 +  const settingsPanel = document.getElementById("dhcp.start").closest("details");
@@ -1588,6 +1607,7 @@ index 27adb7b..15307de 100644
 +    updateLeaseRangeSummary();
 +  });
    processDHCPConfig();
++  loadPiHoleIdentity();
    renderStaticDHCPTable();
    $("#dhcp-hosts").on("input", function () {
 -    // Don't rebuild the table while a row is being edited (a Save button exists),
@@ -1751,9 +1771,7 @@ index 27adb7b..15307de 100644
 +  cell.empty().append(form);
 +  input.trigger("focus")[0].select();
 +}
- 
--    const addBtn = $(
--      '<button type="button" class="btn btn-primary btn-xs add-static-row"><span class="fa fa-fw fa-plus"></span></button>'
++
 +function gatewayRow(profile) {
 +  let override = "";
 +  try { override = localStorage.getItem("gateway-label:" + profile.ip) || ""; } catch { /* Storage is optional. */ }
@@ -1763,6 +1781,12 @@ index 27adb7b..15307de 100644
 +    .text(override || discovered);
 +  const hostname = $("<td>").append(button);
 +  button.on("click", () => editGatewayLabel(hostname, profile.ip, override, discovered));
++  return networkRoleRow(profile, hostname, profile.ip === piHoleIP ? "Gateway / Pi-hole" : "Gateway", "fas fa-network-wired");
++}
+ 
+-    const addBtn = $(
+-      '<button type="button" class="btn btn-primary btn-xs add-static-row"><span class="fa fa-fw fa-plus"></span></button>'
++function networkRoleRow(profile, hostname, label, icon) {
 +  const row = $("<tr>").addClass("dhcp-gateway-row").append(
 +    $("<td>").text(profile.ip), hostname,
 +    $("<td>").append($("<span>").addClass("lease-mac-value").text(profile.hwaddr)),
@@ -1775,7 +1799,7 @@ index 27adb7b..15307de 100644
 -      .attr("data-toggle", "tooltip");
 +  );
 +  orderStaticCells(row, profile);
-+  row.find(".lease-groups").empty().append('<i class="fas fa-network-wired" aria-hidden="true"></i>', " Gateway");
++  row.find(".lease-groups").empty().append($("<i>").addClass(icon).attr("aria-hidden", "true"), " " + label);
 +  updateStaticRow(row[0]);
 +  return row[0];
 +}
@@ -1784,6 +1808,7 @@ index 27adb7b..15307de 100644
 -    const tr = $("<tr></tr>").attr("data-row", idx).attr("data-original-line", line);
 +function renderStaticDHCPTable() {
 +  const rows = [];
++  const server = { ip: piHoleIP, name: piHoleName, hwaddr: leasesByIP.get(piHoleIP)?.hwaddr || "", clientid: "" };
 +  const gatewayLease = leasesByIP.get(gatewayIP);
 +  let gateway = { ip: gatewayIP, name: gatewayLease?.name || "", hwaddr: gatewayLease?.hwaddr || "", clientid: gatewayLease?.clientid || "" };
 +  const lines = $("#dhcp-hosts").val().split(/\r?\n/u);
@@ -1803,6 +1828,11 @@ index 27adb7b..15307de 100644
 +        clientid: fields.find(field => field.startsWith("id:"))?.slice(3) || lease?.clientid || "",
 +      };
 +
++      if (piHoleIP && ipKey === piHoleIP && ipKey !== gatewayIP) {
++        server.hwaddr = profile.hwaddr;
++        server.clientid = profile.clientid;
++        continue;
++      }
 +      if (gatewayIP && ipKey === gatewayIP) {
 +        gateway = profile;
 +        continue;
@@ -1857,7 +1887,7 @@ index 27adb7b..15307de 100644
 -        tdHostname.addClass("table-danger");
 -      }
 +      // Append a last cell containing the buttons
-+      if (!addresses.includes(gatewayIP)) actions.append(" ", delBtn);
++      if (!addresses.includes(gatewayIP) && !addresses.includes(piHoleIP)) actions.append(" ", delBtn);
 +      tr.append(actions);
  
 -      // Append 3 cells containing parsed values
@@ -1873,7 +1903,7 @@ index 27adb7b..15307de 100644
    }
  
 -  tbody.find(".delete-static-row, .add-static-row").prop("disabled", false);
-+  $("#static-gateway").data("profile", gatewayIP ? gateway : null);
++  $("#static-gateway").data("profile", gatewayIP ? gateway : null).data("server", piHoleIP ? server : null);
 +  staticDHCPTable.clear().rows.add(rows);
 +  redrawStaticDHCPTable();
    showLineNumbers();
@@ -1889,7 +1919,7 @@ index 27adb7b..15307de 100644
      utils.showAlert(
        "warning",
        "",
-@@ -531,13 +1627,9 @@ $(document).on("click", ".copy-to-static", function () {
+@@ -531,13 +1657,9 @@ $(document).on("click", ".copy-to-static", function () {
      return;
    }
  
@@ -1906,7 +1936,7 @@ index 27adb7b..15307de 100644
  });
  
  // Add line numbers to the textarea for static DHCP hosts
-@@ -602,7 +1694,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
+@@ -602,7 +1724,7 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-hwaddr", function
  
  $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function () {
    const val = $(this).text().trim();
@@ -1915,7 +1945,7 @@ index 27adb7b..15307de 100644
      $(this).addClass("table-danger");
      $(this).attr("title", "Invalid IP address format");
    } else {
-@@ -611,16 +1703,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
+@@ -611,16 +1733,40 @@ $(document).on("input blur paste", "#StaticDHCPTable td.static-ipaddr", function
    }
  });
  
