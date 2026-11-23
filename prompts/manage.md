@@ -22,7 +22,7 @@ Add optional features as needed.
 
 - **Check only** compares installed files and versions with the published patches. It leaves Pi-hole unchanged.
 - **Install or update** applies the selected changes. It skips current patches and keeps a recovery copy.
-- **Undo** removes the selected patches. The prompt checks which optional features depend on them before deployment.
+- **Undo to stock** restores the selected pages to stock and removes the selected optional features. Select all installed patches and features to return the full installation to stock. The prompt checks dependencies before deployment.
 
 Copy the entire block below into your AI assistant. Provide your Pi-hole Admin URL and how to reach the device.
 
@@ -44,10 +44,10 @@ writer, state, proxy route, UI script, and guard-web.patch. Apply the
 guard overlay last. Reverse it first. Preserve the existing LAN, TLS,
 and authentication rules. Check DNS and the Admin URL after deployment.
 
-Ask which action I want. Offer Check only, Install/update, or Undo.
+Ask which action I want. Offer Check only, Install/update, or Undo to stock.
 Use the choices I already gave you. Confirm the selection before you
 download files or connect to the device. Work on the selected features.
-Check only uses read-only checks. Before Undo, check which installed
+Check only uses read-only checks. Before Undo to stock, check which installed
 features depend on the selected patches. Confirm any dependent removals.
 
 Find my Pi-hole
@@ -141,7 +141,7 @@ Perform the selected action
   older patch in staging. Run git apply --check for the latest patch.
   Apply it to the staged files. Verify the changes. Preserve unrelated edits.
 
-- Undo. Skip missing patches. Reverse the exact installed revision in
+- Undo to stock. Skip missing patches. Reverse the exact installed revision in
   staging. Check that the staged changes remove only the selected patches.
 
 Deploy the changes
@@ -154,7 +154,7 @@ Recheck the live file hashes or deployment revision before deployment.
 If they changed during staging, check the new state before proceeding.
 
 Update the native web files, the source of the web mount, or the existing
-image build or deployment definition. For Undo, remove any step that
+image build or deployment definition. For Undo to stock, remove any step that
 reapplies the selected patch. Preserve any other patch.
 If only a temporary container edit is possible, explain when it will expire.
 Ask me whether to use it.
@@ -188,7 +188,7 @@ after verifying expiry.
   Check that the client filter stays active. If records are available,
   compare group counts with the API results for the same fixed time range.
 
-- Undo. Check that each selected page works as it did before the patch.
+- Undo to stock. Check that each selected page works as it did before the patch.
 
 Report the target, Web version, selected pages, and action. Include the
 installed and available patch revisions and hashes. List the checks that
