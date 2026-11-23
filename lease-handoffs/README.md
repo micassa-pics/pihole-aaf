@@ -10,7 +10,7 @@ The Query Log keeps the original IP on each row. Grouping still uses domain, typ
 
 Coverage starts when the monitor observes a lease or reservation. For an offline static device, the monitor uses the configured reservation. That is weaker evidence than a DHCP lease. Changes made directly through the Pi-hole API or config file bypass the page's edit check. A change and reversal between two checks can go unseen. This feature supports one MAC and one IPv4 address per reservation. Keep one monitor per Pi-hole instance.
 
-The edit check runs in the browser. Two administrators can read the same checkpoint and submit changes at the same time. Use one editor for address changes. If a device never takes its new address, you can delete the pending reservation from the DHCP page.
+The reservation guard checks each device revision and serializes the Pi-hole writes. Two editors can work on different devices. If they change the same device, the second save receives a conflict. The page keeps a copy of the unsaved changes. Use **Cancel move** to restore the previous reservation. Use **Review change** to acknowledge an edit made outside the guard. [Guard setup and recovery](GUARD.md)
 
 If the monitor stops, the DHCP charts show standard per-IP counts with a notice. A filtered Query Log requires a current checkpoint. The ungrouped handoff view defaults to the last 24 hours. Set a start time for older queries. A pending move has no query rows until the device takes its address.
 
@@ -23,8 +23,8 @@ If the monitor stops, the DHCP charts show standard per-IP counts with a notice.
    git apply /path/to/lease-handoffs/web.patch
    ```
 
-2. Find the persistent directory that contains the live `pihole.toml` and `dhcp.leases`. Check that the effective reservations match `dhcp.hosts` in that file. Create a directory named `lease-handoffs` inside it. Set its mode to 0750. Use a dedicated non-root writer and the Pi-hole web service's group. Give the monitor read access to both input files.
-3. Run `worker.py` with Python 3.11 or later. Mount the config directory read-only at `/config`. Mount its `lease-handoffs` subdirectory read-write at `/state`. The web service reads the resulting `/etc/pihole/lease-handoffs/view.txt`. Start the monitor at boot.
+2. Locate the live `pihole.toml` and `dhcp.leases`. Confirm that the effective reservations match `dhcp.hosts`. Create a private state directory outside the Pi-hole config volume. Give the service user ownership and mode 0700. For upgrades, stop both services and copy their state there before restarting.
+3. Run `worker.py` with Python 3.11 or later. Mount the config directory read-only at `/config`. Create a separate publication directory outside the config volume. Give the monitor write access and the Pi-hole web service read access. For the guard overlay, mount this directory read-only in Pi-hole at `/run/pihole-lease-handoffs`. For the history-only overlay, use `/etc/pihole/lease-handoffs` as the read-only mount destination. Start the monitor at boot.
 4. On Docker or Podman, use the example below in the deployment project. Set the host paths, numeric IDs, and approved Python image for your host. On a dedicated Linux device or VM, use the included systemd service. Adjust its paths and IDs first. On an OpenWrt Docker host, the same sidecar can run alongside Pi-hole.
 
    ```yaml
@@ -36,15 +36,18 @@ If the monitor stops, the DHCP charts show standard per-IP counts with a notice.
        read_only: true
        cap_drop: [ALL]
        security_opt: ["no-new-privileges:true"]
+       environment:
+         HANDOFF_PUBLISH: /publish
        volumes:
          - ${PIHOLE_CONFIG}:/config:ro
-         - ${PIHOLE_CONFIG}/lease-handoffs:/state:rw
+         - ${HANDOFF_STATE}:/state:rw
+         - ${HANDOFF_PUBLISH_DIR}:/publish:rw
          - ${HANDOFF_CODE}/worker.py:/app/worker.py:ro
        command: ["python3", "-IB", "/app/worker.py"]
        restart: unless-stopped
    ```
 
-5. Verify that `view.txt` updates. Deploy the staged web patch using the same persistent webroot or image as the base patches. Open a filtered Query Log. Check that an ordinary address still loads. For a pending move, check the waiting message and the MAC on the next DHCP lease. The monitor keeps up to 91 days of intervals. Pi-hole controls query retention.
+5. For a guarded install, finish the [writer and proxy setup](GUARD.md) before deploying the page. Keep private state outside the Pi-hole config directory. Mount the public directory separately at `/publish` and set `HANDOFF_PUBLISH=/publish`. Verify that `view.txt` updates after recreating the Pi-hole container. Open a filtered Query Log. For a pending move, check the waiting message and the MAC on the next DHCP lease. The monitor keeps up to 91 days of intervals. Pi-hole controls query retention.
 
 ## Update or undo
 

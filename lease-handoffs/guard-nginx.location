@@ -1,0 +1,8 @@
+# Install inside the existing Pi-hole server block. Match its actual webhome.
+location = /admin/reservation-guard {
+    limit_except POST { deny all; }
+    client_max_body_size 512k;
+    proxy_set_header Host $http_host;
+    proxy_pass http://unix:/run/reservation-guard/guard.sock:/reservation-guard;
+}
+

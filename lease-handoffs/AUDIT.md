@@ -1,5 +1,11 @@
 # Address handoff audit
 
+## Reservation guard follow-up
+
+The optional server-side writer replaces the browser-only edit check described below. Two independent browser sessions submitted competing IPs for one disposable reservation on an OpenWrt Docker deployment. One save succeeded. The other received a conflict. The winning request ID could be retried. The monitor released the static move and the original 32 reservations were restored. A separate fixture counted exactly one upstream PATCH across both saves and the retry. A browser test verified that a rejected edit preserved its draft and refreshed its baseline.
+
+The Docker entrypoint resets ownership and modes inside its config volume. The guarded install keeps the journal, checkpoint, socket directory and publication directory outside that volume. Pi-hole receives a read-only mount of the published view. The proxy receives the socket directory. The live checks covered container recreation, DNS, and writer access. Direct API clients and pages left open from before the upgrade can still bypass the writer.
+
 The audit started at commit `255304b`. It covered Pi-hole Web v6.6.1 on Docker with an OpenWrt host. Live checks used reads. Browser tests intercepted reservation writes. The deployment updated the monitor and web files.
 
 | Finding | Correction and verification |

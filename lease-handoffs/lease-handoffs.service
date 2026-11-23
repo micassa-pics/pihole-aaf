@@ -9,9 +9,10 @@ Group=pihole
 UMask=0077
 ExecStart=/usr/bin/python3 -IB /usr/local/lib/pihole-lease-handoffs/worker.py
 BindReadOnlyPaths=/etc/pihole:/config
-BindPaths=/etc/pihole/lease-handoffs:/state
+BindPaths=/var/lib/pihole-lease-handoffs:/state /run/pihole-lease-handoffs:/publish
+Environment=HANDOFF_PUBLISH=/publish
 ProtectSystem=strict
-ReadWritePaths=/state
+ReadWritePaths=/state /publish
 ProtectHome=true
 PrivateNetwork=true
 PrivateDevices=true

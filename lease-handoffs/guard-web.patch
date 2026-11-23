@@ -1,0 +1,127 @@
+diff --git a/lease-handoffs.lp b/lease-handoffs.lp
+index ac53313..78bc67d 100644
+--- a/lease-handoffs.lp
++++ b/lease-handoffs.lp
+@@ -1,6 +1,6 @@
+ <?
+ if mg.request_info.is_authenticated then
+-    local f = io.open('/etc/pihole/lease-handoffs/view.txt', 'r')
++    local f = io.open('/run/pihole-lease-handoffs/view.txt', 'r')
+     if f then
+         for line in f:lines() do
+             if line:match('^T %d+$') then
+diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
+index 3721ce7..228edf4 100644
+--- a/scripts/js/settings-dhcp.js
++++ b/scripts/js/settings-dhcp.js
+@@ -930,44 +930,8 @@ async function writeDHCP(key, value) {
+       data: JSON.stringify({ config: { dhcp: { [key]: value } } }) });
+     return;
+   }
+-  const read = async () => (await $.getJSON(api + "/config/dhcp?detailed=true")).config.dhcp.hosts.value;
+   const before = savedDHCPValues.get(document.getElementById("dhcp-hosts"));
+-  const latest = await read();
+-  if (latest.join("\n") !== before)
+-    throw new Error("DHCP reservations changed on the server. Reload the page before editing.");
+-  const changedIPs = [];
+-  const rules = lines => new Map(lines.flatMap(line => {
+-    const fields = line.toLowerCase().split(",").map(x => x.trim());
+-    const mac = fields.find(x => /^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(x));
+-    const ip = fields.find(x => utils.validateIPv4(x));
+-    return mac && ip ? [[mac, ip]] : [];
+-  }));
+-  const next = rules(value);
+-  for (const [mac, ip] of rules(latest))
+-    if (next.get(mac) !== ip) changedIPs.push({ mac, ip });
+-  if (changedIPs.length) {
+-    const checkpoint = await leaseHandoffWindows();
+-    for (const { mac, ip } of changedIPs) {
+-      const record = checkpoint.reservations.get(mac);
+-      if (record?.ip !== ip) throw new Error("The previous reservation change is being recorded. Try again shortly.");
+-      if (record.pending && next.has(mac)) throw new Error("Waiting for this device to lease its reserved IP before another address change.");
+-    }
+-  }
+-  const added = visibleHosts(value, latest);
+-  const removed = visibleHosts(latest, value);
+-  // A single item can be changed under the server's config lock. Keep a rename
+-  // or a batch atomic with one verified replacement.
+-  if (added.length + removed.length === 1 && new Set(latest).size === latest.length &&
+-      new Set(value).size === value.length &&
+-      (removed.length || value.at(-1) === added[0])) {
+-    await $.ajax({ url: api + "/config/dhcp/hosts/" + encodeURIComponent((added[0] || removed[0])),
+-      method: added.length ? "PUT" : "DELETE" });
+-  } else {
+-    await $.ajax({ url: api + "/config", method: "PATCH", contentType: "application/json",
+-      data: JSON.stringify({ config: { dhcp: { hosts: value } } }) });
+-  }
+-  if ((await read()).join("\n") !== value.join("\n"))
+-    throw new Error("The server has different reservations after saving. Reload the page to review them.");
++  await guardedSave(hostLines(before), value);
+ }
+ 
+ async function withDHCPSave(action) {
+@@ -1030,8 +994,8 @@ function saveHosts(manual = false) {
+       if (merged.join("\n") !== stored.join("\n")) await writeDHCP("hosts", merged);
+       savedDHCPValues.set(field, merged.join("\n"));
+       pendingHostDeletes = queued;
++      displayHosts(visibleHosts(merged, queued));
+     } catch (error) {
+-      displayHosts(before);
+       throw error;
+     }
+   });
+@@ -1068,6 +1032,7 @@ $(document).on("click", "#apply-dhcp-deletes", () => withDHCPSave(async () => {
+     await writeDHCP("hosts", remaining);
+     savedDHCPValues.set(field, remaining.join("\n"));
+     pendingHostDeletes = [];
++    displayHosts(remaining);
+   }
+   if (pendingLeaseDeletes.size) {
+     const { leases } = await $.getJSON(document.body.dataset.apiurl + "/dhcp/leases");
+@@ -1083,10 +1048,16 @@ $(document).on("click", "#apply-dhcp-deletes", () => withDHCPSave(async () => {
+ }));
+ 
+ function processDHCPConfig() {
+-  $.ajax({
+-    url: document.body.dataset.apiurl + "/config/dhcp?detailed=true",
+-  })
+-    .done(data => {
++  Promise.all([$.getJSON(document.body.dataset.apiurl + "/config/dhcp?detailed=true"),
++    guardCall({action:"read"}).catch(() => null)])
++    .then(([data, view]) => {
++      if (view) {
++        data.config.dhcp.hosts.value = view.hosts;
++        reservationVersions = view.versions;
++      } else {
++        data.config.dhcp.hosts.flags = {...data.config.dhcp.hosts.flags, env_var:true};
++        utils.showAlert("error", "", "Reservation service unavailable", "Reload the page before editing static reservations.");
++      }
+       updateGatewaySummary(data.config.dhcp.router.value);
+       configureLeaseTimes(data.config.dhcp);
+       refreshExpirationBars();
+@@ -1096,10 +1067,10 @@ function processDHCPConfig() {
+       savedDHCPValues = new Map(Array.from(document.querySelectorAll("[data-key^='dhcp.']"),
+         field => [field, dhcpValue(field)]));
+       updatePendingDHCP();
++      if (view) guardStatus(view);
++      pollReservationMoves();
+     })
+-    .fail(data => {
+-      apiFailure(data);
+-    });
++    .catch(error => utils.showAlert("error", "", "Could not load DHCP reservations", error.message || "Request failed."));
+ }
+ 
+ function parseStaticDHCPLine(line) {
+diff --git a/settings-dhcp.lp b/settings-dhcp.lp
+index 9bacef8..65a0958 100644
+--- a/settings-dhcp.lp
++++ b/settings-dhcp.lp
+@@ -416,6 +416,7 @@ end
+ </template>
+ <script src="<?=pihole.fileversion('vendor/bootstrap-toggle/bootstrap-toggle.min.js')?>"></script>
+ <script src="<?=pihole.fileversion('vendor/datatables/dataTables.colReorder.min.js')?>"></script>
++<script src="<?=pihole.fileversion('scripts/js/reservation-ui.js')?>"></script>
+ <script src="<?=pihole.fileversion('scripts/js/settings-dhcp.js')?>"></script>
+ <script src="<?=pihole.fileversion('scripts/js/ip-address-sorting.js')?>"></script>
+ <script src="<?=pihole.fileversion('scripts/js/settings.js')?>"></script>

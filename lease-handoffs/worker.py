@@ -75,7 +75,9 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
             moves[mac] = ip
             pending.pop(mac, None)
         elif old != ip or (mac not in moves and mac not in pending):
-            if leases.get(mac) != ip and history and history[-1][0] != ip:
+            seen = state.get("observed_leases", {}).get(mac)
+            if (leases.get(mac) != ip and history and seen
+                    and history[-1][0] == seen[0] and seen[0] != ip):
                 pending[mac] = ip
             if mac in leases and leases[mac] != ip:
                 pending[mac] = ip
@@ -112,6 +114,9 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
     state["moves"] = {m: ip for m, ip in moves.items() if reservations.get(m) == ip and m in windows}
     state["pending"] = {m: ip for m, ip in pending.items() if reservations.get(m) == ip}
     state["reservations"] = reservations.copy()
+    observed = state.setdefault("observed_leases", {})
+    observed.update({mac: [ip, now] for mac, ip in leases.items()})
+    state["observed_leases"] = {m:v for m,v in observed.items() if v[1] >= now - KEEP}
     state["active"] = list(active)
     state["last"] = now
     return "\n".join(result) + "\n"
@@ -136,6 +141,7 @@ def main():
     import fcntl
     os.umask(0o077)
     root = Path("/state")
+    publish = Path(os.environ.get("HANDOFF_PUBLISH", "/state"))
     writer_lock = (root / "worker.lock").open("a")
     fcntl.flock(writer_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     path = root / "state.json"
@@ -145,7 +151,7 @@ def main():
             now = int(time.time())
             rows = update(state, now, *snapshot(Path("/config"), now))
             write(path, json.dumps(state), 0o600)
-            write(root / "view.txt", rows, 0o640)
+            write(publish / "view.txt", rows, 0o640)
         except (OSError, ValueError, KeyError, IndexError) as err:
             print(f"Handoff snapshot skipped: {type(err).__name__}", file=sys.stderr, flush=True)
         time.sleep(PERIOD)

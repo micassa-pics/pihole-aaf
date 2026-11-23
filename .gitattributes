@@ -2,6 +2,9 @@
 *.patch -text
 lease-handoffs/*.py text eol=lf
 lease-handoffs/*.service text eol=lf
+lease-handoffs/*.init text eol=lf
+lease-handoffs/*.location text eol=lf
+lease-handoffs/*.js text eol=lf
 group-pause/*.py text eol=lf
 group-pause/*.service text eol=lf
 group-pause/*.socket text eol=lf

@@ -83,6 +83,14 @@ class HandoffTest(unittest.TestCase):
         self.assertIn("z x 100 115", second)
         self.assertIn("z y 130 145", second)
 
+    def test_readding_an_offline_static_rule_is_not_a_lease_promotion(self):
+        s = {}
+        update(s, 100, {}, {"a":"x"})
+        update(s, 115, {}, {"a":"x"})
+        update(s, 130, {}, {})
+        result = update(s, 145, {}, {"a":"y"})
+        self.assertIn("R a y ready", result)
+
 
 if __name__ == "__main__":
     unittest.main()
