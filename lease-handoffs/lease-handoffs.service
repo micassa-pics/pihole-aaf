@@ -1,0 +1,24 @@
+[Unit]
+Description=Track Pi-hole DHCP address handoffs
+After=local-fs.target
+
+[Service]
+Type=simple
+User=pihole-handoffs
+Group=pihole
+UMask=0077
+ExecStart=/usr/bin/python3 -IB /usr/local/lib/pihole-lease-handoffs/worker.py
+BindReadOnlyPaths=/etc/pihole:/config
+BindPaths=/etc/pihole/lease-handoffs:/state
+ProtectSystem=strict
+ReadWritePaths=/state
+ProtectHome=true
+PrivateNetwork=true
+PrivateDevices=true
+NoNewPrivileges=true
+CapabilityBoundingSet=
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

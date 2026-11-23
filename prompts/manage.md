@@ -5,6 +5,7 @@ Copy the entire block into your AI assistant. Choose **Check only** to compare v
 ```text
 First ask me which Pi-hole pages I want: Dashboard, DHCP, Query Log, or any combination.
 Also ask if I want the optional sidebar group picker. Follow group-pause/README.md from the same verified commit for the selected action. Verify the worker and loader separately.
+Ask if I want automatic address handoffs. This option needs both DHCP and Query Log. Follow lease-handoffs/README.md from the verified commit. Check the worker and web.patch separately. Undo the handoff web patch in staging before checking or updating its base patches. For Check only, make no changes to the live installation.
 Then ask which action I want: Check only, Install/update, or Undo.
 Use any choice I already gave you. Wait for both choices before you
 download a patch or connect to a device. Work only on the selected pages.

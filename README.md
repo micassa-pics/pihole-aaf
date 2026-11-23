@@ -46,6 +46,7 @@ Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface.
 - Edit hostnames and groups in place. Use **Save & Apply** only for deletions.
 - Tap **VND**, **MAC**, or **CID** to show or hide that column in both tables.
 - Check lease time remaining and DNS activity for the past 24 hours.
+- Follow a device's query history when its IP changes. The optional monitor matches the DHCP lease by MAC. [Address handoffs](lease-handoffs/README.md)
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
 [![Full DHCP page with eight active leases, eight static reservations, the collapsed lease range, and the sidebar update checker. Open the interactive comparison.](assets/dhcp-overview.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)

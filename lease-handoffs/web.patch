@@ -1,0 +1,239 @@
+diff --git a/lease-handoffs.lp b/lease-handoffs.lp
+new file mode 100644
+index 0000000..7204455
+--- /dev/null
++++ b/lease-handoffs.lp
+@@ -0,0 +1,16 @@
++<?
++if mg.request_info.is_authenticated then
++    local f = io.open('/etc/pihole/lease-handoffs/view.txt', 'r')
++    if f then
++        for line in f:lines() do
++            if line:match('^T %d+$') then
++                mg.write('T ' .. math.max(0, os.time() - tonumber(line:sub(3))) .. '\n')
++            elseif line:match('^[%d%.]+ [%d%.]+ %d+ %d+$')
++                or line:match('^R [%x:]+ [%d%.]+ %a+$') then
++                mg.write(line .. '\n')
++            end
++        end
++        f:close()
++    end
++end
++?>
+diff --git a/scripts/js/queries.js b/scripts/js/queries.js
+index ee31f75..c0118b3 100644
+--- a/scripts/js/queries.js
++++ b/scripts/js/queries.js
+@@ -154,6 +154,32 @@ function requestQueryPage(url, params) {
+   return queryRequest;
+ }
+ 
++
++async function leaseHandoffWindows() {
++  const response = await fetch("lease-handoffs", { cache: "no-store" });
++  if (!response.ok || response.redirected) throw new Error("Cannot load DHCP handoffs");
++  const windows = new Map();
++  windows.reservations = new Map();
++  for (const line of (await response.text()).trim().split(/\r?\n/)) {
++    if (!line) continue;
++    if (/^T \d+$/.test(line)) { windows.age = Number(line.slice(2)); continue; }
++    const rule = /^R ([a-f0-9:]+) ([\d.]+) (pending|ready)$/.exec(line);
++    if (rule) {
++      windows.reservations.set(rule[1], { ip: rule[2], pending: rule[3] === "pending" });
++      if (rule[3] === "pending") windows.set(rule[2], []);
++      continue;
++    }
++    const match = /^([\d.]+) ([\d.]+) (\d+) (\d+)$/.exec(line);
++    if (!match) throw new Error("Invalid DHCP handoff response");
++    const [, target, ip, start, end] = match;
++    if (!windows.has(target)) windows.set(target, []);
++    windows.get(target).push({ ip, start: Number(start), end: Number(end) });
++  }
++  return windows;
++}
++
++let handoffSnapshot;
++
+ function querySource() {
+   const url = new URL(queryAPIURL, document.baseURI);
+   const { upstream } = queryScopes[queryScope];
+@@ -186,10 +212,22 @@ async function collectQueryRows(request, source, requestId) {
+     params.set("from", range.start);
+     params.set("until", range.end);
+   }
++  const windows = source.windows || [null];
++  for (const window of windows) {
++    const pageUrl = new URL(url);
++    if (window) {
++      const start = Math.max(window.start, Number(url.searchParams.get("from") || 0));
++      const end = Math.min(window.end, Number(url.searchParams.get("until") || Infinity));
++      if (end < start) continue;
++      pageUrl.searchParams.set("client_ip", window.ip);
++      pageUrl.searchParams.set("from", start);
++      pageUrl.searchParams.set("until", end);
++      if (start < Date.now() / 1000 - 86400) pageUrl.searchParams.set("disk", "true");
++    }
+   let page;
+   let start = 0;
+   do {
+-    page = await requestQueryPage(url.href, {
++    page = await requestQueryPage(pageUrl.href, {
+       ...request,
+       start,
+       length: queryBatchSize,
+@@ -201,6 +239,7 @@ async function collectQueryRows(request, source, requestId) {
+     if (beginningOfTime === null && start === 0) initDateRangePicker(page);
+ 
+     for (const query of page.queries) {
++      if (window && (query.client?.ip !== window.ip || query.time < window.start || query.time > window.end)) continue;
+       if (source.filterLocally && parseQueryStatus(query).blocked !== source.blocked) continue;
+       if (!grouped) {
+         rows.push(query);
+@@ -230,6 +269,7 @@ async function collectQueryRows(request, source, requestId) {
+     $("#query-progress").text(start.toLocaleString() + " / " + page.recordsFiltered.toLocaleString() + " queries");
+   } while (page.queries.length > 0 && start < page.recordsFiltered);
+ 
++  }
+   return grouped ? [...groups.values()] : rows;
+ }
+ 
+@@ -259,11 +299,11 @@ function queryActivityChart({ bins, range }) {
+ function sortQueryGroups(rows, order) {
+   const fields = [
+     row => row.time,
+-    row => row.group.mixedStatus ? "Mixed" : row.status,
++    row => row.group?.mixedStatus ? "Mixed" : row.status,
+     row => row.type,
+     row => String(row.domain).toLowerCase(),
+     row => $.fn.dataTable.ext.type.order["ip-address-pre"](row.client.ip),
+-    row => row.group.count,
++    row => row.group?.count ?? row.reply?.time ?? 0,
+   ];
+   return [...rows].sort((a, b) => {
+     for (const { column, dir } of order) {
+@@ -376,7 +416,13 @@ async function loadQueryRows(displayRequest, callback) {
+     const source = querySource();
+     const filters = new URL(source.url).searchParams;
+     updateClientHeading(filters);
+-    if (grouped || source.filterLocally) {
++    const ip = filters.get("client_ip");
++    if (ip && isClientIP(ip)) {
++      handoffSnapshot ??= leaseHandoffWindows().catch(error => { handoffSnapshot = undefined; throw error; });
++      source.windows = (await handoffSnapshot).get(ip);
++      if (id !== queryRequestId) return;
++    }
++    if (grouped || source.filterLocally || source.windows) {
+       const key = JSON.stringify([source.url, queryScope, request.search, request.columns, grouped ? null : request.order]);
+       if (querySnapshot?.key !== key) {
+         status.text(grouped ? "Grouping queries…" : "Filtering queries…");
+@@ -384,8 +430,8 @@ async function loadQueryRows(displayRequest, callback) {
+         if (id !== queryRequestId) return;
+         querySnapshot = { key, rows };
+       }
+-      const rows = grouped ? sortQueryGroups(querySnapshot.rows, request.order) : querySnapshot.rows;
+-      status.text("");
++      const rows = grouped || source.windows ? sortQueryGroups(querySnapshot.rows, request.order) : querySnapshot.rows;
++      status.text(source.windows ? (source.windows.length ? "Includes DHCP address history" : "Waiting for the device to lease its reserved IP") : "");
+       if (liveMode) utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
+       updateClientHeading(filters, rows);
+       callback({
+@@ -935,6 +981,7 @@ $(() => {
+ });
+ 
+ function resetQuerySnapshot() {
++  handoffSnapshot = undefined;
+   cursor = null;
+   querySnapshot = undefined;
+ }
+diff --git a/scripts/js/settings-dhcp.js b/scripts/js/settings-dhcp.js
+index 4ea7886..15a9905 100644
+--- a/scripts/js/settings-dhcp.js
++++ b/scripts/js/settings-dhcp.js
+@@ -178,9 +178,33 @@ function renderHostnameCLID(data, type) {
+ }
+ 
+ // FTL timestamps each ten-minute history bucket at its midpoint.
++
++async function leaseHandoffWindows() {
++  const response = await fetch("lease-handoffs", { cache: "no-store" });
++  if (!response.ok || response.redirected) throw new Error("Cannot load DHCP handoffs");
++  const windows = new Map();
++  windows.reservations = new Map();
++  for (const line of (await response.text()).trim().split(/\r?\n/)) {
++    if (!line) continue;
++    if (/^T \d+$/.test(line)) { windows.age = Number(line.slice(2)); continue; }
++    const rule = /^R ([a-f0-9:]+) ([\d.]+) (pending|ready)$/.exec(line);
++    if (rule) {
++      windows.reservations.set(rule[1], { ip: rule[2], pending: rule[3] === "pending" });
++      if (rule[3] === "pending") windows.set(rule[2], []);
++      continue;
++    }
++    const match = /^([\d.]+) ([\d.]+) (\d+) (\d+)$/.exec(line);
++    if (!match) throw new Error("Invalid DHCP handoff response");
++    const [, target, ip, start, end] = match;
++    if (!windows.has(target)) windows.set(target, []);
++    windows.get(target).push({ ip, start: Number(start), end: Number(end) });
++  }
++  return windows;
++}
++
+ function loadLeaseActivity() {
+-  $.getJSON(document.body.dataset.apiurl + "/history/clients", { N: 0 })
+-    .done(({ history, clients }) => {
++  Promise.all([leaseHandoffWindows(), $.getJSON(document.body.dataset.apiurl + "/history/clients", { N: 0 })])
++    .then(([moves, { history, clients }]) => {
+       for (const [ip, client] of Object.entries(clients || {})) {
+         if (client?.name) dnsClientNames.set(ip, client.name);
+       }
+@@ -199,9 +223,23 @@ function loadLeaseActivity() {
+           if (client) client.bins[hour] += count;
+         }
+       }
++      for (const [target, windows] of moves) {
++        const bins = new Array(24).fill(0);
++        for (const { timestamp, data } of history) {
++          const hour = Math.floor((timestamp - range.start) / range.width);
++          if (hour < 0 || hour >= 24) continue;
++          for (const { ip, start, end } of windows) {
++            // A partial ten-minute bucket can include a different client's traffic.
++            if (timestamp - 300 >= start && timestamp + 300 <= end)
++              bins[hour] += data[ip] || 0;
++          }
++        }
++        activity.set(target, { bins, range });
++      }
+       leaseActivity = activity;
+     })
+-    .always(() => {
++    .catch(error => console.error(error))
++    .finally(() => {
+       leaseActivity ??= new Map();
+       refreshStaticDetails();
+       dhcpLeasesTable.rows().invalidate("data").draw(false);
+@@ -888,6 +926,26 @@ async function writeDHCP(key, value) {
+   const latest = await read();
+   if (latest.join("\n") !== before)
+     throw new Error("DHCP reservations changed on the server. Reload the page before editing.");
++  const changedIPs = [];
++  const rules = lines => new Map(lines.flatMap(line => {
++    const fields = line.toLowerCase().split(",").map(x => x.trim());
++    const mac = fields.find(x => /^(?:[0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(x));
++    const ip = fields.find(x => utils.validateIPv4(x));
++    return mac && ip ? [[mac, ip]] : [];
++  }));
++  const next = rules(value);
++  for (const [mac, ip] of rules(latest))
++    if (next.get(mac) !== ip) changedIPs.push({ mac, ip });
++  if (changedIPs.length) {
++    const checkpoint = await leaseHandoffWindows();
++    if (!Number.isFinite(checkpoint.age) || checkpoint.age > 60)
++      throw new Error("The lease history monitor has not checked in. Try again shortly.");
++    for (const { mac, ip } of changedIPs) {
++      const record = checkpoint.reservations.get(mac);
++      if (record?.ip !== ip) throw new Error("The previous reservation change is being recorded. Try again shortly.");
++      if (record.pending) throw new Error("Waiting for this device to lease its reserved IP before another address change.");
++    }
++  }
+   const added = visibleHosts(value, latest);
+   const removed = visibleHosts(latest, value);
+   // A single item can be changed under the server's config lock. Keep a rename

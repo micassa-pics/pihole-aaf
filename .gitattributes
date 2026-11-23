@@ -1,5 +1,7 @@
 *.md text eol=lf
 *.patch -text
+lease-handoffs/*.py text eol=lf
+lease-handoffs/*.service text eol=lf
 group-pause/*.py text eol=lf
 group-pause/*.service text eol=lf
 group-pause/*.socket text eol=lf
