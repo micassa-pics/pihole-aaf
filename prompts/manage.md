@@ -2,6 +2,8 @@
 
 ## Install options
 
+**The Full Monty** selects Dashboard, DHCP, Query Log, group pause, and the address history and guarded saves bundle. Choose this preset or pick the features you want.
+
 Choose any combination of page patches.
 
 | Page | What it adds |
@@ -26,8 +28,12 @@ Add optional features as needed.
 Copy the entire block below into your AI assistant. Provide your Pi-hole Admin URL and how to reach the device.
 
 ```text
-Briefly explain each choice as you offer it. Ask which pages I want.
-I can choose any combination.
+Start by offering The Full Monty. Explain that it selects Dashboard,
+DHCP, Query Log, group pause, and address history and guarded saves.
+If I choose it, select all of them and go to the action choices.
+Otherwise, let me choose any combination. Briefly explain each choice.
+
+Ask which pages I want.
 - Dashboard. Collapse sections and see query and client totals.
 - DHCP. Manage active leases and static reservations in separate tables.
 - Query Log. Group repeated queries and filter by blocking status.
