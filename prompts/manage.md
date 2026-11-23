@@ -125,10 +125,11 @@ Get the selected patches
    It changes queries.lp, scripts/js/queries.js, and scripts/js/utils.js. It adds vendor/datatables/queryLog.colReorder.min.js. Record whether that file existed before installation.
    Check the paths in each patch against the web interface directory.
 
-3. Append /contents/patches/<filename>?ref=<commit> to the record's API url.
+3. Append /contents/<repo-relative-path>?ref=<commit> to the record's API URL.
    Fetch the file record. Decode its base64 content on the workstation.
    Run git hash-object --no-filters on the file.
-   Compare the result with the file record's sha. Calculate the file's
+   Compare the result with the file record's sha. Apply the same check
+   to the optional overlays and scripts you use. Calculate each file's
    SHA-256 for the report. If you cannot verify the latest version,
    report it as unknown. Stop before installing an unverified update.
 
@@ -139,28 +140,39 @@ Record their paths, hashes, permissions, owners, and symbolic links.
 Keep the original line endings when you copy files. In staging, use
 git -c core.autocrlf=false apply for every Git apply command below.
 This preserves the Linux files when you use Git on Windows.
-Read any installation report or backup. Check each selected patch
-separately. Compare patch contents. A README change alone does not
-change the patch version.
+Read any installation report or backup. Record which base patches,
+overlays, and helper files share the same deployment. A README change
+alone does not change a patch version.
+
+Use stock files from the exact running Pi-hole Web release or a verified
+unpatched backup. Include every file the installed stack can modify, add,
+or remove. Record the SHA-256 of each file and which paths are absent.
+Use this manifest to compare complete files. Include helper scripts and
+service files when checking an optional feature.
+
+A successful git apply --reverse --check only shows that the patch can
+be reversed. Several revisions can pass that check. For each candidate,
+reverse the exact stack in staging, starting with the last overlay.
+Compare the result with the stock manifest. Rebuild the same stack on a
+fresh stock copy and compare it with the installed manifest. Identify
+known local edits from a verified backup or install record. Keep those
+edits in staging and check them separately. Stop if unrecognized changes
+prevent an exact comparison or if the evidence leaves the revision unclear.
 
 Use these checks to identify each patch:
 
-- Current. Check that the files contain the latest changes.
-  Test reversal in staging with git apply --reverse --check.
-  If the report disagrees, compare the files with the stock files for
-  the running Web version. Stock files come from the original Pi-hole release.
+- Current. Use the manifest and round-trip checks to verify the latest
+  patch stack. Verify the helper files for each selected optional feature.
 
 - Older version. Get the installed patch from its recorded commit.
-  Verify its recorded SHA-256. Test reversal on a fresh staging copy.
-  If the recorded commit is unavailable or the report is missing or unreliable,
-  search the patch file's commit
-  history. Check older pages of results. Verify each candidate's Git blob ID.
-  Test each distinct version on a separate copy. Compare the result with
-  the matching stock files or a verified unpatched backup. Include files
-  that only the older patch changed.
+  Verify its recorded SHA-256. Use the manifest and round-trip checks on
+  a fresh staging copy. If the record is missing or unreliable, search
+  the patch file's commit history. Check older pages of results. Verify
+  each candidate's Git blob ID. Include files that only the older stack
+  changed. Use the exact installed revisions for the whole stack.
 
-- Missing. Check the affected areas against the matching stock files or
-  a verified unpatched backup. Test the latest patch with git apply --check.
+- Missing. Compare all affected files and absent paths with the stock
+  manifest. Test the latest patch with git apply --check.
   A Pi-hole update can remove a patch.
 
 - Conflict or unknown. Stop if only part of a patch matches, several
@@ -235,7 +247,9 @@ after verifying expiry.
 Report the target, Web version, selected pages, and action. Include the
 installed and available patch revisions and hashes. List the checks that
 passed and any checks you could not complete. If live files changed,
-give the recovery location and exact rollback commands. Explain what
+save the verified commit, patch application order, and before and after
+file manifests with the recovery copy. Give the recovery location and
+exact rollback commands. Explain what
 survives an update or container replacement. Keep credentials, reservation
 details, and client query histories out of the report.
 ```
