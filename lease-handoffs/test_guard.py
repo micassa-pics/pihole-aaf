@@ -28,6 +28,9 @@ class FakeAPI:
     def active_leases(self):
         return self.leases[:]
 
+    def sync_config(self, expected):
+        pass
+
 
 class GuardTests(unittest.TestCase):
     def setUp(self):
@@ -86,8 +89,34 @@ class GuardTests(unittest.TestCase):
             self.call(self.save([row(MAC,2),row(OTHER,8)]))
         v=self.call()
         self.assertEqual(v["locks"][MAC]["kind"],"review")
+        self.assertEqual(v["locks"][MAC]["recovery"], {"before":[row(MAC,1)], "requested":[row(MAC,2)]})
         self.call({"action":"review","key":MAC,"id":"f"*32,"versions":v["versions"]})
         self.assertNotIn(MAC,self.call()["locks"])
+
+    def test_interrupted_reorder_preserves_requested_order(self):
+        with patch.object(self.api, "write", side_effect=OSError()), self.assertRaises(OSError):
+            self.call(self.save(self.base["hosts"][::-1]))
+        view = self.call()
+        self.assertEqual(view["locks"]["order"]["recovery"]["requested"], self.base["hosts"][::-1])
+        with self.assertRaisesRegex(Problem, "Review the current reservation order"):
+            self.call(self.save(self.base["hosts"][::-1], view))
+
+    def test_config_rollback_after_ack_preserves_recovery_rules(self):
+        self.call(self.save([row(MAC,2),row(OTHER,8)]))
+        self.api.rows = self.base["hosts"][:]
+        view = self.call()
+        self.assertEqual(view["locks"][MAC]["recovery"]["requested"], [row(MAC,2)])
+        self.assertEqual(self.api.writes, 1)
+
+    def test_receipt_waits_for_disk_even_after_api_ack(self):
+        request = self.save([row(MAC,2),row(OTHER,8)])
+        with patch.object(self.api, "sync_config", side_effect=OSError("flush failed")):
+            with self.assertRaises(OSError):
+                self.call(request)
+            self.assertIsNotNone(self.j.load()["intent"])
+            self.assertNotIn(request["id"], self.j.load()["receipts"])
+        self.assertIn(MAC, self.call(request)["locks"])
+        self.assertEqual(self.api.writes, 1)
 
     def test_static_release_external_and_cancel(self):
         self.call(self.save([row(MAC,2),row(OTHER,8)]))

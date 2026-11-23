@@ -18,7 +18,7 @@ Use the [single-container installation](docker/README.md).
 
 Install the DHCP and Query Log patches and the address-handoff monitor first. Back up the running web files, deployment configuration and state. Stage all files before switching the web listener.
 
-Install `checkpoint.py` beside `guard.py`. The guard must read the same published view as the web page. Set `--view` when the view is outside the default `published` directory in the guard state.
+Install `checkpoint.py` beside `guard.py`. The guard must read the same published view as the web page. Set `--view` when the view is outside the default `published` directory in the guard state. Set `--config-dir` to the live Pi-hole configuration directory for disk verification. The supplied Docker and systemd launchers set this option.
 
 1. Use one monitor and one writer for each Pi-hole instance. Give them the same private persistent directory and dedicated non-root UID. Keep this directory outside the Pi-hole config volume. The container startup can change ownership of files in that volume. Keep `state.json` and `guard.sqlite` private. Stop both services before copying an existing checkpoint or journal. Preserve the SQLite journal files if present.
 2. Create two separate directories outside the container-managed config volume. Publish `view.txt` in the first. Bind it read-only into Pi-hole at `/run/pihole-lease-handoffs`. Use the second directory for `guard.sock`. Let the monitor write the view and the writer create the socket. Give the proxy group access to the socket. Mount only the socket directory into the proxy at `/run/reservation-guard`. Use the current `worker.py`. It records actual MAC observations separately from inferred static ownership.

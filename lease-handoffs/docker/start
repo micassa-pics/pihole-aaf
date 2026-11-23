@@ -34,10 +34,10 @@ if mountpoint -q /opt/monitor/state && mountpoint -q /opt/monitor/config &&
 else
     echo 'Pi-hole handoffs: monitor mounts are unavailable or do not match' >&2
 fi
-if ((${#origins[@]})) && mountpoint -q /opt/guard/state &&
+if ((${#origins[@]})) && mountpoint -q /opt/guard/state && mountpoint -q /opt/guard/config &&
     [[ /opt/guard/state -ef /opt/monitor/state && /opt/guard/state/ipc -ef /run/reservation-guard &&
-       /opt/guard/state/published -ef /run/pihole-lease-handoffs ]]; then
-    supervise guard env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin chroot /opt/guard /usr/bin/python3 -IB /app/drop.py "$uid" "$gid" /app/guard.py /state /state/ipc/guard.sock http://127.0.0.1:8080/api "${origin_args[@]}" & helpers+=($!)
+       /opt/guard/state/published -ef /run/pihole-lease-handoffs && /opt/guard/config -ef /etc/pihole ]]; then
+    supervise guard env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin chroot /opt/guard /usr/bin/python3 -IB /app/drop.py "$uid" "$gid" /app/guard.py /state /state/ipc/guard.sock http://127.0.0.1:8080/api --config-dir /config "${origin_args[@]}" & helpers+=($!)
 else
     echo 'Pi-hole handoffs: guard needs matching persistent mounts and admin origins' >&2
 fi

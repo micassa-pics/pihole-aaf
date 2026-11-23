@@ -51,16 +51,42 @@ def read_committed(root, view):
         try:
             state = json.loads(path.read_text())
             if state["last"] == generation and view_generation(view) == generation:
+                if "public_view" in state and view.read_text() != state["public_view"]:
+                    continue
                 return state
         except (FileNotFoundError, ValueError, KeyError, TypeError):
             continue
     raise ValueError("No private checkpoint matches the published handoff view")
 
 
+def recover_view(root, view):
+    """Recover the newest state whose publication can be proven."""
+    try:
+        generation = view_generation(view)
+    except (FileNotFoundError, ValueError):
+        generation = None
+    for filename in ("state.json", "state.previous.json"):
+        try:
+            state = json.loads((root / filename).read_text())
+            saved_view = state["public_view"]
+            marker, stamp = saved_view.splitlines()[0].split()
+            if marker != "T" or int(stamp) != state["last"]:
+                continue
+            if filename == "state.json" and state["last"] != generation:
+                continue
+            write(view, saved_view, 0o640)
+            return state
+        except (FileNotFoundError, ValueError, KeyError, TypeError, IndexError):
+            continue
+    raise ValueError("Restore a matching checkpoint and view from backup")
+
+
 def publish(root, view, previous, state, rows):
     # Keep the committed checkpoint until the public view advances. A retry
     # must preserve the same checkpoint if the prior attempt stopped midway.
-    if previous:
-        write(root / "state.previous.json", json.dumps(previous), 0o600)
-    write(root / "state.json", json.dumps(state), 0o600)
+    previous = {**previous, "public_view": view.read_text() if view.exists() else "T 0\n"}
+    if not previous.get("last"):
+        previous["last"] = 0
+    write(root / "state.previous.json", json.dumps(previous), 0o600)
+    write(root / "state.json", json.dumps({**state, "public_view": rows}), 0o600)
     write(view, rows, 0o640)

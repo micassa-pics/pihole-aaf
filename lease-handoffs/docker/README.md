@@ -17,6 +17,7 @@ volumes:
   - ${HANDOFF_STATE}:/opt/guard/state
   - ${HANDOFF_STATE}:/opt/monitor/state
   - ${PIHOLE_CONFIG}:/opt/monitor/config:ro
+  - ${PIHOLE_CONFIG}:/opt/guard/config:ro
   - ${HANDOFF_STATE}/published:/run/pihole-lease-handoffs:ro
   - ${HANDOFF_STATE}/ipc:/run/reservation-guard:ro
 ```
@@ -36,4 +37,20 @@ docker exec pihole /usr/local/bin/health-handoffs patch
 
 The first updated checkpoint preserves older ownership windows as unverified. Automatic history starts from the observations the updated monitor can verify. Pi-hole retains its original DNS history.
 
-Back up the state directory with the monitor and guard stopped. Keep the published view, both private checkpoints and the SQLite journal together. If a write stops before publication, the monitor can resume from the matching previous checkpoint. If neither checkpoint matches the published view, stop the container and restore a matching checkpoint and view from the same backup. Keep the latest guard journal if it is intact. Review live reservation changes before restoring an older journal.
+## Recover after a power cut
+
+1. Start the same image with its original persistent volumes. Check DNS and patch readiness separately. Avoid retrying an unsaved browser draft until the guard checks its journal against Pi-hole.
+2. The guard verifies the saved reservation list in `pihole.toml` and syncs the file and its parent directory before recording success. If the write was interrupted, the guard compares the intended rules with the live rules. A mismatch keeps the previous and requested rules under **Review change**. Copy any rules you want to reapply before closing the review. Then start a fresh edit from the current list.
+3. A damaged public history view can be rebuilt from a matching private checkpoint. If the generation marker is missing, the monitor uses the previous proven generation. If no proven copy survives, restore a matching checkpoint and view from backup.
+4. For a damaged config volume or lost disk, stop Pi-hole before restoring. Use a verified backup of the Pi-hole config, gravity data, handoff state and the deployed Compose file. Keep the latest intact guard journal. Review any intervening reservation changes before replacing it with an older copy. Restore the exact image by digest or from a saved image archive.
+
+Take consistent backups with Pi-hole stopped. Keep the config and SQLite files with any journal or WAL files present. Keep both private checkpoints and the published view together. Verify the archive and keep a copy on a separate device. Store these backups privately. They include Pi-hole settings and device records. Disk flushes rely on the filesystem and storage hardware honoring them.
+
+If power fails during deployment, compare the persisted Compose file and the running image with the saved deployment files. From the Compose project directory, use the verified configuration for the selected image. Reconcile the service and check both health checks. Keep the newest intact journal and checkpoints. Review any intervening saves before restoring an older backup.
+
+```sh
+docker compose config --quiet
+docker compose up -d --no-build pihole
+docker exec pihole /usr/local/bin/health-handoffs dns
+docker exec pihole /usr/local/bin/health-handoffs patch
+```

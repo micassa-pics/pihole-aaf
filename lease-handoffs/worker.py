@@ -8,7 +8,7 @@ import sys
 import time
 import tomllib
 
-from checkpoint import publication_lock, publish, read_committed, write
+from checkpoint import publication_lock, publish, read_committed, recover_view, write
 
 PERIOD = 15
 KEEP = 91 * 86400
@@ -146,8 +146,14 @@ def main():
         try:
             if not view.exists() and not (root / "state.json").exists():
                 write(view, "T 0\n", 0o640)
-            previous = read_committed(root, view)
+            try:
+                previous = read_committed(root, view)
+            except (FileNotFoundError, ValueError):
+                with publication_lock(root, exclusive=True):
+                    previous = recover_view(root, view)
+                print("Handoff view recovered from a private checkpoint", file=sys.stderr, flush=True)
             state = deepcopy(previous)
+            state.pop("public_view", None)
             now = int(time.time())
             rows = update(state, now, *snapshot(Path("/config"), now))
             with publication_lock(root, exclusive=True):

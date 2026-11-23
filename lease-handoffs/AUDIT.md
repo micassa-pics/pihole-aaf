@@ -1,5 +1,13 @@
 # Address handoff audit
 
+## Power-loss recovery checks
+
+- The guard keeps the requested rules when a write stops before it can record a receipt. It records success only after the Pi-hole API and the synced configuration file agree. SQLite uses rollback journaling with `synchronous=EXTRA`.
+- The private checkpoints contain copies of their public views. If the view is damaged, the monitor rebuilds it from the matching private copy. If the generation marker is missing, it restores the previous proven generation and takes a fresh sample.
+- The router test killed a process after each of the three checkpoint writes. Killing it after either private write preserved the previous generation. Killing it after public publication retained the new generation. A separate kill left a hot SQLite journal. SQLite recovered the prior committed transaction and passed its integrity check.
+- An isolated Pi-hole accepted a real reservation save and returned a receipt after disk verification. An abrupt container kill and recreation preserved both. Removing the public view in the isolated container triggered automatic recovery. All 29 unit tests passed.
+- These fault tests exercised abrupt process loss with the filesystem mounted. A physical power cut and storage-controller behavior require separate verification.
+
 ## Single-container durability checks
 
 - The guard offers Cancel only when the journal records the previous rule or records that the move created a rule. A monitor-only move requires review. If it still needs a lease, it keeps waiting after review. The guard checks fresh lease ownership, rereads the reservation list before writing, and verifies the saved list. A direct writer can still race the full-list update between the last read and the write.

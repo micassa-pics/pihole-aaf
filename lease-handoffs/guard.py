@@ -13,6 +13,7 @@ import socketserver
 import sqlite3
 import sys
 import time
+import tomllib
 import traceback
 from urllib.parse import urlsplit
 
@@ -68,7 +69,8 @@ def edit(lines, desired, keys):
 class Journal:
     def __init__(self, path):
         self.db = sqlite3.connect(path)
-        self.db.execute("PRAGMA synchronous=FULL")
+        self.db.execute("PRAGMA journal_mode=DELETE")
+        self.db.execute("PRAGMA synchronous=EXTRA")
         self.db.execute("CREATE TABLE IF NOT EXISTS journal (id INTEGER PRIMARY KEY, data TEXT NOT NULL)")
 
     def load(self):
@@ -85,39 +87,62 @@ def bump(s, key):
 
 
 def finish(s, intent, now):
+    previous = groups(intent.get("before", []))
+    desired = groups(intent["after"])
+    last_changes = s.setdefault("last_changes", {})
     for key in intent["keys"]:
         bump(s, key)
         s["locks"].pop(key, None)
+        if "before" in intent and previous.get(key) != desired.get(key):
+            last_changes[key] = {"before":previous.get(key, []), "requested":desired.get(key, [])}
         lock = intent["locks"].get(key)
         if lock:
             s["locks"][key] = lock
     s["receipts"][intent["id"]] = [intent["digest"], now, "saved"]
     s["known"] = groups(intent["after"])
+    s["known_order"] = intent["after"]
+    if not intent["keys"] and "before" in intent and intent["before"] != intent["after"]:
+        s["last_order"] = {"before":intent["before"], "requested":intent["after"]}
     s["intent"] = None
 
 
-def reconcile(s, current, monitor, now):
+def reconcile(s, current, monitor, now, sync_config):
     actual = groups(current)
     intent = s["intent"]
     if intent:
         after = groups(intent["after"])
         if (current == intent["after"] if not intent["keys"] else
                 all(actual.get(k, []) == after.get(k, []) for k in intent["keys"])):
+            sync_config(current)
             finish(s, intent, now)
         else:
             # An interrupted PATCH is never replayed. Require a human to review.
-            for key in intent["keys"]:
+            previous = groups(intent.get("before", []))
+            for key in intent["keys"] or ["order"]:
                 bump(s, key)
-                s["locks"][key] = {"kind": "review", "ip": ip_of(actual.get(key, []))}
+                recovery = {"before":previous.get(key, []), "requested":after.get(key, [])}
+                if key == "order":
+                    recovery = {"before":intent.get("before", []), "requested":intent["after"]}
+                s["locks"][key] = {"kind":"review", "ip":ip_of(actual.get(key, [])), "recovery":recovery}
             s["receipts"][intent["id"]] = [intent["digest"], now, "review"]
             s["intent"] = None
     old = s["known"]
+    old_order = s.get("known_order")
+    last_order = s.get("last_order")
+    if last_order and old_order == last_order["requested"] and current != old_order and sorted(current) == sorted(old_order):
+        bump(s, "order")
+        s["locks"]["order"] = {"kind":"review", "ip":None, "recovery":last_order}
     if old is not None:
         for key in old.keys() | actual.keys():
             if old.get(key) != actual.get(key):
                 bump(s, key)
-                s["locks"][key] = {"kind": "review", "ip": ip_of(actual.get(key, []))}
+                existing = s["locks"].get(key, {})
+                recovery = existing.get("recovery", s.get("last_changes", {}).get(key))
+                s["locks"][key] = {"kind":"review", "ip":ip_of(actual.get(key, []))}
+                if recovery is not None:
+                    s["locks"][key]["recovery"] = recovery
     s["known"] = actual
+    s["known_order"] = current
     if monitor:
         recorded = groups(monitor.get("host_rules", []))
         for key, lock in list(s["locks"].items()):
@@ -142,6 +167,8 @@ def snapshot(s, current, monitor):
     for key, lock in s["locks"].items():
         if lock["kind"] != "review" and "before" not in lock:
             locks[key]["waitOnly"] = True
+        if "recovery" in lock:
+            locks[key]["recovery"] = lock["recovery"]
     for k, ip in (monitor or {}).get("pending", {}).items():
         if ip == ip_of(s["known"].get(k, [])):
             locks.setdefault(k, {"kind":"review", "ip":ip})
@@ -153,7 +180,7 @@ def operate(journal, api, monitor, req):
     current = api.read()
     s = journal.load()
     prior = json.dumps(s)
-    reconcile(s, current, monitor, now)
+    reconcile(s, current, monitor, now, api.sync_config)
     if json.dumps(s) != prior:
         journal.store(s)
     view = snapshot(s, current, monitor)
@@ -225,8 +252,9 @@ def operate(journal, api, monitor, req):
             observed = monitor.get("observed_leases", {}).get(key)
             kind = "lease" if monitor.get("dhcp_enabled", True) and not old_ip and observed and observed[0] != new_ip else "checkpoint"
             locks[key] = {"kind":kind, "since":max(now,monitor["last"]), "ip":new_ip, "before":base.get(key,[])}
-    if action == "save" and before != after and not keys and current != before:
-        raise Problem("The list changed before the reorder. Review the current reservations.")
+    if action == "save" and before != after and not keys:
+        if "order" in view["locks"] or current != before:
+            raise Problem("Review the current reservation order before reordering again.")
     target = after if action == "save" and current == before else edit(current, after, keys)
     # Refuse to merge a stale draft onto an IP now reserved by another device.
     owners = {}
@@ -252,7 +280,7 @@ def operate(journal, api, monitor, req):
                 continue
             if lease.get("hwaddr", "").lower() != new_targets[address]:
                 raise Problem("This IP is currently leased to another device.")
-    intent = {"id":rid,"digest":digest,"after":target,"keys":sorted(keys),"locks":locks}
+    intent = {"id":rid,"digest":digest,"before":current,"after":target,"keys":sorted(keys),"locks":locks}
     s["intent"] = intent
     journal.store(s)
     if target != current:
@@ -272,6 +300,7 @@ def operate(journal, api, monitor, req):
             raise
         if api.read() != target:
             raise Problem("Pi-hole returned different reservations. Review the device.")
+        api.sync_config(target)
     finish(s,intent,now)
     journal.store(s)
     return snapshot(s,target,monitor)
@@ -287,8 +316,23 @@ def check_lease_target(monitor, key, address):
 
 
 class API:
-    def __init__(self, origin, headers):
+    def __init__(self, origin, headers, config=None):
         self.origin, self.headers = origin, headers
+        self.config = config
+
+    def sync_config(self, expected):
+        if self.config is None:
+            return
+        path = self.config / "pihole.toml"
+        with path.open("rb") as file:
+            if tomllib.load(file)["dhcp"]["hosts"] != expected:
+                raise Problem("The saved rules are awaiting disk verification. Refresh before retrying.", 503)
+            os.fsync(file.fileno())
+            sync_directory(self.config)
+            final = path.stat()
+            original = os.fstat(file.fileno())
+            if (final.st_dev, final.st_ino) != (original.st_dev, original.st_ino):
+                raise Problem("Pi-hole replaced its config during disk verification. Refresh before retrying.", 503)
 
     def call(self, method, path, data=None):
         cls = http.client.HTTPSConnection if self.origin.scheme == "https" else http.client.HTTPConnection
@@ -358,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
                         sync_directory(self.server.view.parent)
             except (OSError,KeyError,ValueError,TypeError):
                 monitor = None
-            result = operate(self.server.journal, API(self.server.origin, auth), monitor, req)
+            result = operate(self.server.journal, API(self.server.origin, auth, self.server.config), monitor, req)
             code = 200
         except Problem as err:
             result, code = {"error":str(err)}, err.status
@@ -387,6 +431,7 @@ def main():
     p.add_argument("socket",type=Path)
     p.add_argument("api")
     p.add_argument("--view", type=Path, help="Path to the published handoff view")
+    p.add_argument("--config-dir", type=Path, help="Read-only Pi-hole config directory for durable save verification")
     p.add_argument("--web-origin", action="append", default=[], help="Allowed external admin origin")
     args = p.parse_args()
     if os.getuid() == 0:
@@ -399,6 +444,7 @@ def main():
         args.socket.chmod(0o660)
         server.journal = Journal(args.state/"guard.sqlite")
         server.state = args.state
+        server.config = args.config_dir
         server.view = args.view or args.state/"published/view.txt"
         server.origin = urlsplit(args.api)
         server.origins = set(args.web_origin or [f"{server.origin.scheme}://{server.origin.netloc}"])

@@ -5,7 +5,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-from checkpoint import publish, read_committed
+from checkpoint import publish, read_committed, recover_view
 from worker import KEEP, snapshot, update, unique_pairs
 
 
@@ -110,12 +110,30 @@ class HandoffTest(unittest.TestCase):
                 for _ in range(2):
                     with self.assertRaises(OSError):
                         publish(root, view, read_committed(root, view), {"last":115}, "T 115\n")
-                    self.assertEqual(read_committed(root, view), {"last":100})
+                    self.assertEqual(read_committed(root, view)["last"], 100)
                 publish(root, view, read_committed(root, view), {"last":130}, "T 130\n")
-                self.assertEqual(read_committed(root, view), {"last":130})
+                self.assertEqual(read_committed(root, view)["last"], 130)
             (root / "state.json").write_text("broken")
             with self.assertRaisesRegex(ValueError, "No private checkpoint"):
                 read_committed(root, view)
+
+    def test_recovers_view_without_promoting_uncommitted_state(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            view = root / "view.txt"
+
+            def disk_write(path, value, mode):
+                path.write_text(value)
+
+            with patch("checkpoint.write", side_effect=disk_write):
+                publish(root, view, {}, {"last":100}, "T 100\nR a x ready\n")
+                view.write_text("T 100\ntruncated")
+                self.assertEqual(recover_view(root, view)["last"], 100)
+                self.assertEqual(view.read_text(), "T 100\nR a x ready\n")
+                publish(root, view, read_committed(root, view), {"last":115}, "T 115\n")
+                view.unlink()
+                self.assertEqual(recover_view(root, view)["last"], 100)
+                self.assertEqual(read_committed(root, view)["last"], 100)
 
     def test_readding_an_offline_static_rule_is_not_a_lease_promotion(self):
         s = {}

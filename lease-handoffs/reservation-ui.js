@@ -35,13 +35,20 @@ function guardStatus(view) {
     $("<p>").text("Lease history checkpoint is unavailable. Reservation moves are paused.").appendTo(panel);
   }
   for (const [key, move] of Object.entries(view.locks)) {
-    const row = $("<p>").text((move.ip || key) + " · " + moveLabel(move) + " ").appendTo(panel);
+    const label = key === "order" ? "Reservation order" : move.ip || key;
+    const row = $("<p>").text(label + " · " + moveLabel(move) + " ").appendTo(panel);
+    if (move.recovery) {
+      const details = $("<details>").appendTo(panel);
+      $("<summary>").text("Show previous and requested rules").appendTo(details);
+      $("<pre>").text("Previous rules\n" + move.recovery.before.join("\n") +
+        "\n\nRequested rules\n" + move.recovery.requested.join("\n")).appendTo(details);
+    }
     if (move.waitOnly) continue;
     const review = move.kind === "review";
     $('<button type="button" class="btn btn-default btn-xs">').text(review ? "Review change" : "Cancel move")
       .appendTo(row).on("click", async () => {
         const lines = view.hosts.filter(line => line.toLowerCase().split(",").map(x => x.trim()).includes(key));
-        const prompt = review ? "Accept the current reservation?" : "Cancel this move and restore the previous reservation?";
+        const prompt = review ? "Keep the current rules and clear this review?" : "Cancel this move and restore the previous reservation?";
         if (!confirm(prompt + "\n" + (lines.join("\n") || key))) return;
         await withDHCPSave(async () => {
           const response = await guardCall({action: review ? "review" : "cancel", key, versions:view.versions, id:guardId()});
@@ -108,7 +115,9 @@ function pollReservationMoves() {
   clearTimeout(guardPoll);
   guardPoll = setTimeout(async () => {
     try {
-      if (!document.hidden && !savingDHCP) guardStatus(await guardCall({action:"read"}));
+      if (!document.hidden && !savingDHCP && !document.querySelector("#reservation-moves details[open]")) {
+        guardStatus(await guardCall({action:"read"}));
+      }
     } catch { /* The next save always checks the server again. */ }
     pollReservationMoves();
   }, 15000);
