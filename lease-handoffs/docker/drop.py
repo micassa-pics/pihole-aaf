@@ -11,6 +11,6 @@ os.setgid(gid)
 os.setuid(uid)
 if ctypes.CDLL(None).prctl(38, 1, 0, 0, 0):
     raise SystemExit("Cannot set no-new-privileges")
-args = [sys.executable, "-IB", *sys.argv[3:]]
+args = [sys.executable, "-EBs", *sys.argv[3:]]
 # Pass only the publication path. Pi-hole environment variables may contain secrets.
 os.execve(sys.executable, args, {"HANDOFF_PUBLISH": "/state/published"})

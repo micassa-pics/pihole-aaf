@@ -31,8 +31,12 @@ function guardStatus(view) {
   let panel = $("#reservation-moves");
   if (!panel.length) panel = $('<div id="reservation-moves" aria-live="polite">').insertBefore("#StaticDHCPTable");
   panel.empty();
+  if (view.checkpointReady === false) {
+    $("<p>").text("Lease history checkpoint is unavailable. Reservation moves are paused.").appendTo(panel);
+  }
   for (const [key, move] of Object.entries(view.locks)) {
     const row = $("<p>").text((move.ip || key) + " · " + moveLabel(move) + " ").appendTo(panel);
+    if (move.waitOnly) continue;
     const review = move.kind === "review";
     $('<button type="button" class="btn btn-default btn-xs">').text(review ? "Review change" : "Cancel move")
       .appendTo(row).on("click", async () => {

@@ -9,7 +9,7 @@ COPY lease-handoffs/reservation-ui.js scripts/js/reservation-ui.js
 
 FROM ${PIHOLE_IMAGE} AS runtime
 RUN mkdir -p /jail/etc/apk /jail/app /jail/config /jail/state && cp -R /etc/apk/keys /etc/apk/repositories /jail/etc/apk/ && apk --root /jail --initdb --no-cache --no-scripts add python3
-COPY lease-handoffs/docker/drop.py /jail/app/
+COPY lease-handoffs/docker/drop.py lease-handoffs/checkpoint.py /jail/app/
 
 FROM ${PIHOLE_IMAGE}
 RUN apk add --no-cache nginx
@@ -18,7 +18,10 @@ COPY --from=runtime /jail /opt/guard
 COPY --from=runtime /jail /opt/monitor
 COPY lease-handoffs/guard.py /opt/guard/app/
 COPY lease-handoffs/worker.py /opt/monitor/app/
+COPY lease-handoffs/docker/readiness.py /opt/monitor/app/
 COPY lease-handoffs/guard-nginx.location /etc/nginx/guard.location
 COPY lease-handoffs/docker/start /usr/local/bin/start-handoffs
-RUN chmod 0755 /usr/local/bin/start-handoffs && chmod 0644 /opt/guard/app/*.py /opt/monitor/app/*.py /etc/nginx/guard.location /var/www/html/admin/scripts/js/reservation-ui.js
+COPY lease-handoffs/docker/health /usr/local/bin/health-handoffs
+RUN chmod 0755 /usr/local/bin/start-handoffs /usr/local/bin/health-handoffs && chmod 0644 /opt/guard/app/*.py /opt/monitor/app/*.py /etc/nginx/guard.location /var/www/html/admin/scripts/js/reservation-ui.js
+HEALTHCHECK --interval=20s --timeout=10s --start-period=45s CMD ["/usr/local/bin/health-handoffs"]
 ENTRYPOINT ["/usr/local/bin/start-handoffs"]

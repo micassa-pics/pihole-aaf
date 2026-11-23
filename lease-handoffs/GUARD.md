@@ -7,7 +7,7 @@ The writer records each request in SQLite before it sends the change. Each reque
 - A static move stays locked until the monitor records the new reservation.
 - With DHCP off, the monitor can still confirm a saved static rule. It records no lease activity during that interval. You can also correct duplicate IP rules once the monitor has read the conflicting configuration.
 - A lease promotion waits for the same MAC at its reserved IP.
-- A conflicting browser refreshes the rows and shows the unsaved draft below the table controls. Use **Cancel move** to restore the previous rule. For a new reservation, cancellation removes the rule.
+- A conflicting browser refreshes the rows and shows the unsaved draft below the table controls. Use **Cancel move** when the journal records the previous rule. If it records a new reservation, cancellation removes the rule. Use **Review change** when the monitor detects a pending move and the journal has no rollback record.
 - Direct API clients, older open pages and direct config edits can bypass the guard. Reload open DHCP pages after deployment. The writer detects observed outside changes and marks affected entries for review. An outside change and reversal between observations can go unseen.
 
 ## Docker install
@@ -17,6 +17,8 @@ Use the [single-container installation](docker/README.md).
 ## Native install
 
 Install the DHCP and Query Log patches and the address-handoff monitor first. Back up the running web files, deployment configuration and state. Stage all files before switching the web listener.
+
+Install `checkpoint.py` beside `guard.py`. The guard must read the same published view as the web page. Set `--view` when the view is outside the default `published` directory in the guard state.
 
 1. Use one monitor and one writer for each Pi-hole instance. Give them the same private persistent directory and dedicated non-root UID. Keep this directory outside the Pi-hole config volume. The container startup can change ownership of files in that volume. Keep `state.json` and `guard.sqlite` private. Stop both services before copying an existing checkpoint or journal. Preserve the SQLite journal files if present.
 2. Create two separate directories outside the container-managed config volume. Publish `view.txt` in the first. Bind it read-only into Pi-hole at `/run/pihole-lease-handoffs`. Use the second directory for `guard.sock`. Let the monitor write the view and the writer create the socket. Give the proxy group access to the socket. Mount only the socket directory into the proxy at `/run/reservation-guard`. Use the current `worker.py`. It records actual MAC observations separately from inferred static ownership.

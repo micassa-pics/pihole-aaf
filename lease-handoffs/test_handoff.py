@@ -1,8 +1,11 @@
 import json
+import errno
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+from checkpoint import publish, read_committed
 from worker import KEEP, snapshot, update, unique_pairs
 
 
@@ -78,11 +81,41 @@ class HandoffTest(unittest.TestCase):
         update(s, 115, {}, {"a":"x"})
         first = update(s, 130, {}, {"a":"y"})
         self.assertIn("R a y ready", first)
-        self.assertIn("y x 100 115", first)
+        self.assertIn("y x 100 100", first)
         update(s, 145, {}, {"a":"y"})
         second = update(s, 160, {"other":"x"}, {"a":"z"})
-        self.assertIn("z x 100 115", second)
-        self.assertIn("z y 130 145", second)
+        self.assertIn("z x 100 100", second)
+        self.assertNotIn("z y ", second)
+
+    def test_legacy_inference_is_preserved_but_not_published(self):
+        old = {"last":100, "windows":{"a":[["x", 85, 100]]},
+               "reservations":{"a":"x"}, "moves":{"a":"x"}, "active":["a"]}
+        view = update(old, 115, {}, {"a":"y"})
+        self.assertIn("R a y unverified", view)
+        self.assertNotIn("y x 85 100", view)
+        self.assertEqual(old["legacy_windows"]["a"], [["x", 85, 100]])
+
+    def test_checkpoint_publication_failure_keeps_last_commit(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            view = root / "view.txt"
+
+            def disk_write(path, value, mode):
+                if path == view and value == "T 115\n":
+                    raise OSError(errno.ENOSPC, "Disk full")
+                path.write_text(value)
+
+            with patch("checkpoint.write", side_effect=disk_write):
+                publish(root, view, {}, {"last":100}, "T 100\n")
+                for _ in range(2):
+                    with self.assertRaises(OSError):
+                        publish(root, view, read_committed(root, view), {"last":115}, "T 115\n")
+                    self.assertEqual(read_committed(root, view), {"last":100})
+                publish(root, view, read_committed(root, view), {"last":130}, "T 130\n")
+                self.assertEqual(read_committed(root, view), {"last":130})
+            (root / "state.json").write_text("broken")
+            with self.assertRaisesRegex(ValueError, "No private checkpoint"):
+                read_committed(root, view)
 
     def test_readding_an_offline_static_rule_is_not_a_lease_promotion(self):
         s = {}

@@ -16,6 +16,7 @@ class FakeAPI:
     def __init__(self):
         self.rows = [row(MAC,1),row(OTHER,8)]
         self.writes = 0
+        self.leases = []
 
     def read(self):
         return self.rows[:]
@@ -23,6 +24,9 @@ class FakeAPI:
     def write(self, rows):
         self.writes += 1
         self.rows = rows[:]
+
+    def active_leases(self):
+        return self.leases[:]
 
 
 class GuardTests(unittest.TestCase):
@@ -134,6 +138,46 @@ class GuardTests(unittest.TestCase):
         with self.assertRaises(Problem):
             self.call(self.save([row(OTHER,8)]))
         self.assertEqual(self.api.writes,0)
+
+    def test_monitor_only_move_can_be_reviewed_but_never_cancelled(self):
+        self.monitor["pending"][MAC] = "192.0.2.1"
+        view = self.call()
+        self.assertEqual(view["locks"][MAC]["kind"], "review")
+        request = {"action": "cancel", "key": MAC, "id": "b" * 32, "versions": view["versions"]}
+        with self.assertRaises(Problem):
+            self.call(request)
+        view = self.call({**request, "action": "review"})
+        self.assertTrue(view["locks"][MAC]["waitOnly"])
+        with self.assertRaises(Problem):
+            self.call({**request, "id": "c" * 32, "versions": view["versions"]})
+        self.assertEqual(self.api.rows, self.base["hosts"])
+        self.assertEqual(self.api.writes, 0)
+
+    def test_active_or_ambiguous_lease_blocks_target(self):
+        request = self.save([row(MAC,2), row(OTHER,8)])
+        self.monitor["active_leases"] = {OTHER: "192.0.2.2"}
+        with self.assertRaisesRegex(Problem, "leased to another device"):
+            self.call(request)
+        self.monitor["active_leases"] = {}
+        self.monitor["ambiguous_ips"] = ["192.0.2.2"]
+        with self.assertRaisesRegex(Problem, "ambiguous"):
+            self.call(request)
+        self.assertEqual(self.api.writes, 0)
+
+    def test_external_edit_before_write_is_detected(self):
+        request = self.save([row(MAC,2), row(OTHER,8)])
+        external = [row(MAC,1), row(OTHER,9)]
+        with patch.object(self.api, "read", side_effect=[self.api.rows, external]):
+            with self.assertRaisesRegex(Problem, "changed before the save"):
+                self.call(request)
+        self.assertEqual(self.api.writes, 0)
+        self.assertIsNone(self.j.load()["intent"])
+
+    def test_live_lease_arriving_after_checkpoint_blocks_write(self):
+        self.api.leases = [{"ip": "192.0.2.2", "hwaddr": OTHER, "expires": 101}]
+        with self.assertRaisesRegex(Problem, "leased to another device"):
+            self.call(self.save([row(MAC,2), row(OTHER,8)]))
+        self.assertEqual(self.api.writes, 0)
 
     def test_denied_api_write_does_not_leave_intent(self):
         with patch.object(self.api,"write",side_effect=Problem("Denied",403)), self.assertRaises(Problem):

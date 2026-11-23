@@ -1,12 +1,14 @@
 """Track IPv4 lease handoffs without opening the query database."""
 import ipaddress
-import json
+from copy import deepcopy
 import os
 from pathlib import Path
 import re
 import sys
 import time
 import tomllib
+
+from checkpoint import publication_lock, publish, read_committed, write
 
 PERIOD = 15
 KEEP = 91 * 86400
@@ -52,23 +54,29 @@ def snapshot(config, now):
 
 
 def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=(), hosts=None, enabled=True):
+    if now <= state.get("last", 0):
+        raise ValueError("Waiting for the clock to advance")
+    if state.get("checkpoint_format") != 1:
+        # Old windows combine observed leases and inferred static ownership.
+        # Preserve them for conflict detection, but never publish them as proof.
+        state["legacy_windows"] = state.pop("windows", {})
+        state["active"] = []
+        state["checkpoint_format"] = 1
     windows = state.setdefault("windows", {})
     moves = state.setdefault("moves", {})
     previous = state.get("reservations", {})
     pending = state.get("pending", {})
-    if now <= state.get("last", 0):
-        raise ValueError("Waiting for the clock to advance")
-    for mac in list(windows):
-        windows[mac] = [w for w in windows[mac] if w[2] >= now - KEEP]
-        if not windows[mac]:
-            del windows[mac]
     former_owners = {}
-    for mac, history in windows.items():
-        for address, _, _ in history:
-            former_owners.setdefault(address, set()).add(mac)
-    active = dict(leases)
+    for records in (windows, state["legacy_windows"]):
+        for mac, history in list(records.items()):
+            recent = [window for window in history if window[2] >= now - KEEP]
+            if not recent:
+                del records[mac]
+                continue
+            records[mac] = recent
+            for address, _, _ in recent:
+                former_owners.setdefault(address, set()).add(mac)
     for mac, ip in reservations.items():
-        history = windows.get(mac, [])
         old = previous.get(mac)
         if mac in pending and old != ip:
             pending[mac] = ip
@@ -77,8 +85,7 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
             pending.pop(mac, None)
         elif old != ip or (mac not in moves and mac not in pending):
             seen = state.get("observed_leases", {}).get(mac)
-            if (leases.get(mac) != ip and history and seen
-                    and history[-1][0] == seen[0] and seen[0] != ip):
+            if leases.get(mac) != ip and seen and seen[0] != ip and seen[1] >= now - KEEP:
                 pending[mac] = ip
             if mac in leases and leases[mac] != ip:
                 pending[mac] = ip
@@ -89,11 +96,7 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
         if pending.get(mac) == ip and leases.get(mac) == ip:
             moves[mac] = ip
             del pending[mac]
-        if (mac not in active and mac not in pending and ip not in leases.values()
-                and mac not in ambiguous_macs and ip not in ambiguous_ips
-                and old is not None):
-            active[mac] = ip
-    for mac, ip in active.items():
+    for mac, ip in leases.items():
         history = windows.setdefault(mac, [])
         if (history and history[-1][0] == ip and mac in state.get("active", [])
                 and now - history[-1][2] <= PERIOD * 2):
@@ -108,17 +111,23 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
         if mac not in pending and (any(w[0] != ip for w in history)
                                    or former_owners.get(ip, set()) - {mac}):
             moves[mac] = ip
-        result.append(f"R {mac} {ip} {'pending' if mac in pending else 'ready'}")
+        status = "pending" if mac in pending else "ready"
+        if status == "ready" and moves.get(mac) == ip and not history:
+            status = "unverified"
+        result.append(f"R {mac} {ip} {status}")
         if moves.get(mac) == ip and mac not in pending and history:
             for old_ip, start, end in history:
                 result.append(f"{ip} {old_ip} {max(start, now - KEEP)} {end}")
-    state["moves"] = {m: ip for m, ip in moves.items() if reservations.get(m) == ip and m in windows}
+    state["moves"] = {m: ip for m, ip in moves.items() if reservations.get(m) == ip}
     state["pending"] = {m: ip for m, ip in pending.items() if reservations.get(m) == ip}
     state["reservations"] = reservations.copy()
+    state["active_leases"] = leases.copy()
+    state["ambiguous_macs"] = sorted(ambiguous_macs)
+    state["ambiguous_ips"] = sorted(ambiguous_ips)
     observed = state.setdefault("observed_leases", {})
     observed.update({mac: [ip, now] for mac, ip in leases.items()})
     state["observed_leases"] = {m:v for m,v in observed.items() if v[1] >= now - KEEP}
-    state["active"] = list(active)
+    state["active"] = list(leases)
     state["last"] = now
     if hosts is not None:
         state["host_rules"] = hosts
@@ -126,38 +135,25 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
     return "\n".join(result) + "\n"
 
 
-def write(path, data, mode):
-    tmp = path.with_suffix(".tmp")
-    with tmp.open("w") as f:
-        f.write(data)
-        f.flush()
-        os.fchmod(f.fileno(), mode)
-        os.fsync(f.fileno())
-    tmp.replace(path)
-    directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
-    try:
-        os.fsync(directory)
-    finally:
-        os.close(directory)
-
-
 def main():
     import fcntl
     os.umask(0o077)
     root = Path("/state")
-    publish = Path(os.environ.get("HANDOFF_PUBLISH", "/state"))
+    view = Path(os.environ.get("HANDOFF_PUBLISH", "/state")) / "view.txt"
     writer_lock = (root / "worker.lock").open("a")
     fcntl.flock(writer_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    path = root / "state.json"
-    state = json.loads(path.read_text()) if path.exists() else {}
     while True:
         try:
+            if not view.exists() and not (root / "state.json").exists():
+                write(view, "T 0\n", 0o640)
+            previous = read_committed(root, view)
+            state = deepcopy(previous)
             now = int(time.time())
             rows = update(state, now, *snapshot(Path("/config"), now))
-            write(path, json.dumps(state), 0o600)
-            write(publish / "view.txt", rows, 0o640)
-        except (OSError, ValueError, KeyError, IndexError) as err:
-            print(f"Handoff snapshot skipped: {type(err).__name__}", file=sys.stderr, flush=True)
+            with publication_lock(root, exclusive=True):
+                publish(root, view, previous, state, rows)
+        except (OSError, ValueError, KeyError, IndexError, TypeError) as err:
+            print(f"Handoff checkpoint unavailable: {type(err).__name__}", file=sys.stderr, flush=True)
         time.sleep(PERIOD)
 
 

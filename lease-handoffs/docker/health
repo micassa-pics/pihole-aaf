@@ -1,0 +1,21 @@
+#!/bin/sh
+set -eu
+
+dns() {
+    dig -p "$(pihole-FTL --config dns.port)" +short +norecurse +retry=0 @127.0.0.1 pi.hole >/dev/null
+}
+
+patch() {
+    curl -fsS --max-time 3 http://127.0.0.1/admin/ >/dev/null || return 1
+    code=$(curl -sS --max-time 3 --unix-socket /run/reservation-guard/guard.sock \
+        -o /dev/null -w '%{http_code}' -d '{}' http://localhost/reservation-guard) || return 1
+    test "$code" = 403 || return 1
+    chroot /opt/monitor /usr/bin/python3 -EBs /app/readiness.py
+}
+
+case "${1:-all}" in
+    dns) dns ;;
+    patch) patch ;;
+    all) dns && patch ;;
+    *) exit 2 ;;
+esac

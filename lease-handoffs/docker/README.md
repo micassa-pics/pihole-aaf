@@ -24,3 +24,16 @@ volumes:
 4. Test the image with private copies of the config and state. Before cutover, record the current reservations and pending moves. Stop the old writer and monitor. Back up their state and SQLite journal together. Stop the old proxy. Replace the Pi-hole service with the derived image and its entrypoint.
 5. Check DNS, the admin page, LAN access rules, a guard read and the checkpoint timestamp. Compare reservations and pending moves. Restart the container and repeat the checks. Disable old startup jobs after the checks pass.
 6. To roll back, stop the new container first. Restore the previous Compose file, image and services. Use the latest consistent state. Restore an older state backup only after reconciling any writes since that backup.
+
+## Check readiness and recover
+
+Docker reports unhealthy when DNS or a patch component fails. Run either check on its own to identify the failure. FTL can still serve DNS and DHCP when the monitor or guard is unavailable.
+
+```sh
+docker exec pihole /usr/local/bin/health-handoffs dns
+docker exec pihole /usr/local/bin/health-handoffs patch
+```
+
+The first updated checkpoint preserves older ownership windows as unverified. Automatic history starts from the observations the updated monitor can verify. Pi-hole retains its original DNS history.
+
+Back up the state directory with the monitor and guard stopped. Keep the published view, both private checkpoints and the SQLite journal together. If a write stops before publication, the monitor can resume from the matching previous checkpoint. If neither checkpoint matches the published view, stop the container and restore a matching checkpoint and view from the same backup. Keep the latest guard journal if it is intact. Review live reservation changes before restoring an older journal.

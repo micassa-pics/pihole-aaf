@@ -35,7 +35,7 @@ os.setgid(gid)
 os.setuid(uid)
 if libc.prctl(38,1,0,0,0):
     raise OSError(ctypes.get_errno(),"Could not set no-new-privileges")
-os.execv(sys.executable,[sys.executable,"-IB","/usr/lib/pihole-lease-handoffs/guard.py",
+os.execv(sys.executable,[sys.executable,"-EBs","/usr/lib/pihole-lease-handoffs/guard.py",
                          "/state","/ipc/guard.sock",api,
                          *[arg for origin in origins for arg in ("--web-origin",origin)]])
 

@@ -1,5 +1,13 @@
 # Address handoff audit
 
+## Single-container durability checks
+
+- The guard offers Cancel only when the journal records the previous rule or records that the move created a rule. A monitor-only move requires review. If it still needs a lease, it keeps waiting after review. The guard checks fresh lease ownership, rereads the reservation list before writing, and verifies the saved list. A direct writer can still race the full-list update between the last read and the write.
+- The guard uses the checkpoint generation named in the public view. A failed publication can leave a newer private checkpoint on disk. The previous committed generation remains usable. Legacy ownership windows stay private because they combine observed and inferred ownership.
+- Twenty-five automated tests passed. They cover a missing rollback record, current lease conflicts, a direct edit detected before the write, interrupted writes, repeated publication failure with a simulated full disk, corrupt state, and legacy history migration.
+- The OpenWrt Docker lab used the release image on an isolated virtual link. A real DHCP client took a dynamic address and then its reserved address. The guard released the move after the monitor published both observed address windows. Two concurrent saves produced one winner and one conflict. Replaying the winner returned its receipt. Recreating the container preserved the reservation and receipt.
+- Pausing and killing the monitor and killing the guard left DNS running. Readiness detected the stale checkpoint. Both helpers restarted. A test with missing patch mounts kept DNS available and reported patch readiness failure. The previous image restarted and read the same test reservation in a rollback drill. The audit did not cut power to the router.
+
 ## Reservation guard follow-up
 
 The optional server-side writer replaces the browser-only edit check described below. Two independent browser sessions submitted competing IPs for one disposable reservation on an OpenWrt Docker deployment. One save succeeded. The other received a conflict. The winning request ID could be retried. The monitor released the static move and the original 32 reservations were restored. A separate fixture counted exactly one upstream PATCH across both saves and the retry. A browser test verified that a rejected edit preserved its draft and refreshed its baseline.
@@ -28,7 +36,7 @@ The audit started at commit `255304b`. It covered Pi-hole Web v6.6.1 on Docker w
 
 ## Limits
 
-- The browser's read and write are separate requests. Two tabs can race. The API and direct config edits can bypass the guard.
+- Guarded browsers use revisions and one writer. Direct API and config edits can bypass the guard.
 - A reservation is weaker evidence than a lease. A device with a manually assigned address can use someone else's reserved IP. Sampling every 15 seconds can miss brief changes. The monitor cannot reconstruct ownership before its first observation.
 - DHCP charts omit ten-minute buckets that cross an ownership boundary. Their totals can differ from the timestamp-based Query Log.
 - The monitor replaces two files every 15 seconds. This creates 11,520 file replacements per day. Filesystem journaling adds storage writes. A corrupt checkpoint requires recovery from backup. Keep a persistent state directory.

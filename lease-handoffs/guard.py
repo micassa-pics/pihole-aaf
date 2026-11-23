@@ -16,6 +16,8 @@ import time
 import traceback
 from urllib.parse import urlsplit
 
+from checkpoint import publication_lock, read_committed, sync_directory
+
 MAC = re.compile(r"(?:[0-9a-f]{2}:){5}[0-9a-f]{2}")
 MAX_BODY = 512 * 1024
 
@@ -137,10 +139,13 @@ def reconcile(s, current, monitor, now):
 
 def snapshot(s, current, monitor):
     locks = {k:{"kind":v["kind"], "ip":v["ip"]} for k,v in s["locks"].items()}
+    for key, lock in s["locks"].items():
+        if lock["kind"] != "review" and "before" not in lock:
+            locks[key]["waitOnly"] = True
     for k, ip in (monitor or {}).get("pending", {}).items():
         if ip == ip_of(s["known"].get(k, [])):
-            locks.setdefault(k, {"kind":"lease", "ip":ip})
-    return {"hosts":current, "versions":s["rev"], "locks":locks}
+            locks.setdefault(k, {"kind":"review", "ip":ip})
+    return {"hosts":current, "versions":s["rev"], "locks":locks, "checkpointReady": monitor is not None}
 
 
 def operate(journal, api, monitor, req):
@@ -173,6 +178,7 @@ def operate(journal, api, monitor, req):
     versions = req.get("versions")
     if not isinstance(versions,dict):
         raise Problem("Missing device revisions.",400)
+    locks = {}
     if action == "save":
         before, after = req.get("before"), req.get("after")
         for lines in (before,after):
@@ -190,10 +196,14 @@ def operate(journal, api, monitor, req):
             raise Problem("This reservation is waiting for a handoff.")
         if action == "cancel" and view["locks"][key]["kind"] == "review":
             raise Problem("Review the current reservation first.")
-        restore = s["locks"].get(key, {}).get("before", [])
-        after = edit(current, restore, keys) if action == "cancel" else current
+        lock = s["locks"].get(key, {})
+        if action == "cancel" and not isinstance(lock.get("before"), list):
+            raise Problem("The journal has no previous reservation to restore.")
+        after = edit(current, lock["before"], keys) if action == "cancel" else current
+        pending = (monitor or {}).get("pending", {}).get(key)
+        if action == "review" and pending and pending == ip_of(base.get(key, [])):
+            locks[key] = {"kind":"lease", "since":monitor["last"], "ip":pending}
         desired = groups(after)
-    locks = {}
     for key in keys:
         if versions.get(key,0) != s["rev"].get(key,0) or base.get(key) != s["known"].get(key):
             raise Problem("Another editor changed this device. Review the current row before saving.")
@@ -211,6 +221,7 @@ def operate(journal, api, monitor, req):
                 caught_up = monitor["reservations"].get(key) == old_ip
             if action != "cancel" and not caught_up:
                 raise Problem("Waiting for the monitor to record the current reservation.")
+            check_lease_target(monitor, key, new_ip)
             observed = monitor.get("observed_leases", {}).get(key)
             kind = "lease" if monitor.get("dhcp_enabled", True) and not old_ip and observed and observed[0] != new_ip else "checkpoint"
             locks[key] = {"kind":kind, "since":max(now,monitor["last"]), "ip":new_ip, "before":base.get(key,[])}
@@ -219,6 +230,8 @@ def operate(journal, api, monitor, req):
     target = after if action == "save" and current == before else edit(current, after, keys)
     # Refuse to merge a stale draft onto an IP now reserved by another device.
     owners = {}
+    new_targets = {}
+    previous = groups(current)
     for key, rows in groups(target).items():
         for line in rows:
             addr = ip_of([line])
@@ -226,10 +239,30 @@ def operate(journal, api, monitor, req):
                 raise Problem("The selected IP is already reserved.")
             if addr:
                 owners[addr] = key
+                if key in keys and not any(ip_of([old]) == addr for old in previous.get(key, [])):
+                    new_targets[addr] = key
+    if new_targets and not monitor:
+        raise Problem("The lease monitor has no current checkpoint.", 503)
+    if new_targets and monitor.get("dhcp_enabled", True):
+        for lease in api.active_leases():
+            address = lease["ip"]
+            if address not in new_targets:
+                continue
+            if lease["expires"] and lease["expires"] <= now:
+                continue
+            if lease.get("hwaddr", "").lower() != new_targets[address]:
+                raise Problem("This IP is currently leased to another device.")
     intent = {"id":rid,"digest":digest,"after":target,"keys":sorted(keys),"locks":locks}
     s["intent"] = intent
     journal.store(s)
     if target != current:
+        try:
+            if api.read() != current:
+                raise Problem("The reservation list changed before the save. Refresh and try again.")
+        except (OSError, http.client.HTTPException, Problem, ValueError, KeyError):
+            s["intent"] = None
+            journal.store(s)
+            raise
         try:
             api.write(target)
         except Problem as err:
@@ -242,6 +275,15 @@ def operate(journal, api, monitor, req):
     finish(s,intent,now)
     journal.store(s)
     return snapshot(s,target,monitor)
+
+
+def check_lease_target(monitor, key, address):
+    if not monitor.get("dhcp_enabled", True):
+        return
+    if address in monitor.get("ambiguous_ips", []) or key in monitor.get("ambiguous_macs", []):
+        raise Problem("Lease ownership is ambiguous. Wait for DHCP to resolve it.")
+    if any(owner != key and ip == address for owner, ip in monitor.get("active_leases", {}).items()):
+        raise Problem("This IP is currently leased to another device.")
 
 
 class API:
@@ -281,6 +323,9 @@ class API:
     def write(self,lines):
         self.call("PATCH","/config",{"config":{"dhcp":{"hosts":lines}}})
 
+    def active_leases(self):
+        return self.call("GET", "/dhcp/leases")["leases"]
+
 
 class Handler(BaseHTTPRequestHandler):
     timeout = 15
@@ -304,10 +349,14 @@ class Handler(BaseHTTPRequestHandler):
                 raise Problem("Expected a JSON object.",400)
             auth = {k:self.headers[k] for k in ("Cookie","X-FTL-SID","X-CSRF-TOKEN") if self.headers.get(k)}
             try:
-                monitor = json.loads(self.server.checkpoint.read_text())
-                if not 0 <= time.time()-monitor["last"] <= 60:
-                    monitor = None
-            except (OSError,KeyError,ValueError):
+                with publication_lock(self.server.state):
+                    monitor = read_committed(self.server.state, self.server.view)
+                    if monitor.get("checkpoint_format") != 1 or not 0 <= time.time()-monitor["last"] <= 30:
+                        monitor = None
+                    else:
+                        # Make a publication durable even if the worker stopped just after rename.
+                        sync_directory(self.server.view.parent)
+            except (OSError,KeyError,ValueError,TypeError):
                 monitor = None
             result = operate(self.server.journal, API(self.server.origin, auth), monitor, req)
             code = 200
@@ -337,6 +386,7 @@ def main():
     p.add_argument("state",type=Path)
     p.add_argument("socket",type=Path)
     p.add_argument("api")
+    p.add_argument("--view", type=Path, help="Path to the published handoff view")
     p.add_argument("--web-origin", action="append", default=[], help="Allowed external admin origin")
     args = p.parse_args()
     if os.getuid() == 0:
@@ -348,7 +398,8 @@ def main():
     with socketserver.UnixStreamServer(str(args.socket), Handler) as server:
         args.socket.chmod(0o660)
         server.journal = Journal(args.state/"guard.sqlite")
-        server.checkpoint = args.state/"state.json"
+        server.state = args.state
+        server.view = args.view or args.state/"published/view.txt"
         server.origin = urlsplit(args.api)
         server.origins = set(args.web_origin or [f"{server.origin.scheme}://{server.origin.netloc}"])
         server.serve_forever()

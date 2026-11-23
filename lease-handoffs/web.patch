@@ -37,10 +37,10 @@ index ee31f75..e02f07a 100644
 +  for (const line of (await response.text()).trim().split(/\r?\n/)) {
 +    if (!line) continue;
 +    if (/^T \d+$/.test(line)) { windows.age = Number(line.slice(2)); continue; }
-+    const rule = /^R ([a-f0-9:]+) ([\d.]+) (pending|ready)$/.exec(line);
++    const rule = /^R ([a-f0-9:]+) ([\d.]+) (pending|ready|unverified)$/.exec(line);
 +    if (rule) {
 +      windows.reservations.set(rule[1], { ip: rule[2], pending: rule[3] === "pending" });
-+      if (rule[3] === "pending") windows.set(rule[2], []);
++      if (rule[3] !== "ready") { const list = []; list.status = rule[3]; windows.set(rule[2], list); }
 +      continue;
 +    }
 +    const match = /^([\d.]+) ([\d.]+) (\d+) (\d+)$/.exec(line);
@@ -49,7 +49,7 @@ index ee31f75..e02f07a 100644
 +    if (!windows.has(target)) windows.set(target, []);
 +    windows.get(target).push({ ip, start: Number(start), end: Number(end) });
 +  }
-+  if (!Number.isFinite(windows.age) || windows.age > 60) throw new Error("The lease monitor has no current checkpoint.");
++  if (!Number.isFinite(windows.age) || windows.age > 30) throw new Error("The lease monitor has no current checkpoint.");
 +  return windows;
 +}
 +
@@ -181,33 +181,38 @@ index ee31f75..e02f07a 100644
    ];
    return [...rows].sort((a, b) => {
      for (const { column, dir } of order) {
-@@ -376,7 +421,13 @@ async function loadQueryRows(displayRequest, callback) {
+@@ -376,7 +421,18 @@ async function loadQueryRows(displayRequest, callback) {
      const source = querySource();
      const filters = new URL(source.url).searchParams;
      updateClientHeading(filters);
 -    if (grouped || source.filterLocally) {
 +    const ip = filters.get("client_ip");
 +    if (ip && isClientIP(ip)) {
-+      handoffSnapshot ??= leaseHandoffWindows().catch(error => { handoffSnapshot = undefined; throw error; });
-+      source.windows = (await handoffSnapshot).get(ip);
++      if (!handoffSnapshot || performance.now() >= handoffSnapshot.expires) {
++        querySnapshot = undefined;
++        const windows = await leaseHandoffWindows();
++        if (id !== queryRequestId) return;
++        handoffSnapshot = { windows, expires: performance.now() + Math.max(0, 30 - windows.age) * 1000 };
++      }
++      source.windows = handoffSnapshot.windows.get(ip);
 +      if (id !== queryRequestId) return;
 +    }
 +    if (grouped || source.filterLocally || source.windows) {
        const key = JSON.stringify([source.url, queryScope, request.search, request.columns, grouped ? null : request.order]);
        if (querySnapshot?.key !== key) {
          status.text(grouped ? "Grouping queries…" : "Filtering queries…");
-@@ -384,8 +435,8 @@ async function loadQueryRows(displayRequest, callback) {
+@@ -384,8 +440,8 @@ async function loadQueryRows(displayRequest, callback) {
          if (id !== queryRequestId) return;
          querySnapshot = { key, rows };
        }
 -      const rows = grouped ? sortQueryGroups(querySnapshot.rows, request.order) : querySnapshot.rows;
 -      status.text("");
 +      const rows = grouped || source.windows ? sortQueryGroups(querySnapshot.rows, request.order) : querySnapshot.rows;
-+      status.text(source.windows ? (source.windows.length ? "Includes DHCP address history" : "Waiting for the device to lease its reserved IP") : "");
++      status.text(source.windows ? (source.windows.length ? "Includes DHCP address history" : source.windows.status === "unverified" ? "No verified DHCP address history for this device" : "Waiting for the device to lease its reserved IP") : "");
        if (liveMode) utils.setTimer(liveUpdate, REFRESH_INTERVAL.query_log);
        updateClientHeading(filters, rows);
        callback({
-@@ -935,6 +986,7 @@ $(() => {
+@@ -935,6 +991,7 @@ $(() => {
  });
  
  function resetQuerySnapshot() {
@@ -232,10 +237,10 @@ index 4ea7886..3721ce7 100644
 +  for (const line of (await response.text()).trim().split(/\r?\n/)) {
 +    if (!line) continue;
 +    if (/^T \d+$/.test(line)) { windows.age = Number(line.slice(2)); continue; }
-+    const rule = /^R ([a-f0-9:]+) ([\d.]+) (pending|ready)$/.exec(line);
++    const rule = /^R ([a-f0-9:]+) ([\d.]+) (pending|ready|unverified)$/.exec(line);
 +    if (rule) {
 +      windows.reservations.set(rule[1], { ip: rule[2], pending: rule[3] === "pending" });
-+      if (rule[3] === "pending") windows.set(rule[2], []);
++      if (rule[3] !== "ready") { const list = []; list.status = rule[3]; windows.set(rule[2], list); }
 +      continue;
 +    }
 +    const match = /^([\d.]+) ([\d.]+) (\d+) (\d+)$/.exec(line);
@@ -244,7 +249,7 @@ index 4ea7886..3721ce7 100644
 +    if (!windows.has(target)) windows.set(target, []);
 +    windows.get(target).push({ ip, start: Number(start), end: Number(end) });
 +  }
-+  if (!Number.isFinite(windows.age) || windows.age > 60) throw new Error("The lease monitor has no current checkpoint.");
++  if (!Number.isFinite(windows.age) || windows.age > 30) throw new Error("The lease monitor has no current checkpoint.");
 +  return windows;
 +}
 +
