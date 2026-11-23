@@ -88,7 +88,7 @@ index af99c0a..ccb24b6 100644
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
 +  line.firstElementChild.title = "Installed pages: " + [...installed.keys()].map(key => ({ dhcp: "DHCP", queries: "Query Log", dashboard: "Dashboard" })[key]).join(", ");
-+  line.lastElementChild.href = "https://micassa-pics.github.io/pihole-awesome-a-fyer/check.html#" + installed;
++  line.lastElementChild.href = "https://micassa-pics.github.io/pihole-aaf/check.html#" + installed;
 +  const panel = memory.closest(".user-panel");
 +  if (panel) panel.style.minHeight = (line.parentElement.offsetHeight + 20) + "px";
 +});

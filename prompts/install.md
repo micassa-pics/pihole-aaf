@@ -1,4 +1,4 @@
-# Install or update Pi-hole awesome-a-fyer
+# Install or update pihole-aaf
 
 1. Copy the block from the [shared prompt](manage.md) into your AI assistant.
 2. Choose **Install or update**. Choose **Check only** for a read-only check.

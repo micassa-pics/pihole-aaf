@@ -1,4 +1,4 @@
-# Manage Pi-hole awesome-a-fyer
+# Manage pihole-aaf
 
 ## Actions
 

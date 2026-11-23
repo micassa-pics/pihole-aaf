@@ -1,6 +1,6 @@
 **The page patches change only the Pi-hole web UI. They use Pi-hole’s existing API when you save changes. I tweaked the layout to suit how I use Pi-hole. Maybe you’ll find it useful too.**
 
-# Pi-hole awesome-a-fyer
+# pihole-aaf
 
 Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface. Install any combination.
 
@@ -32,7 +32,7 @@ Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface.
 - Switch between **All**, **Blocked**, and **Allowed**. Keep the current client filter.
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
-[![Full Query Log with eight groups, a 24-bar chart for each group, and the top-left update checker. Open the interactive comparison.](assets/queries-overview.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#queries)
+[![Full Query Log with eight groups, a 24-bar chart for each group, and the top-left update checker. Open the interactive comparison.](assets/queries-overview.jpg)](https://micassa-pics.github.io/pihole-aaf/#queries)
 
 [Query Log guide](queries.md)
 
@@ -50,6 +50,6 @@ Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface.
 - On Docker, the monitor, guard, and Nginx run inside the same Pi-hole container. [Docker setup](lease-handoffs/docker/README.md)
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
-[![Full DHCP page with eight active leases, eight static reservations, the collapsed lease range, and the sidebar update checker. Open the interactive comparison.](assets/dhcp-overview.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
+[![Full DHCP page with eight active leases, eight static reservations, the collapsed lease range, and the sidebar update checker. Open the interactive comparison.](assets/dhcp-overview.jpg)](https://micassa-pics.github.io/pihole-aaf/#dhcp)
 
 [DHCP guide](dhcp.md)
