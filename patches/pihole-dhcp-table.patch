@@ -1,5 +1,5 @@
 diff --git a/scripts/js/footer.js b/scripts/js/footer.js
-index af99c0a..732d78b 100644
+index af99c0a..9f35c62 100644
 --- a/scripts/js/footer.js
 +++ b/scripts/js/footer.js
 @@ -654,8 +654,9 @@ $("#pihole-disable-custom").on("click", e => {
@@ -83,7 +83,7 @@ index af99c0a..732d78b 100644
 +    // Keep the label first in the DOM for compatibility with the 1.1.0 registrar.
 +    line.append(document.createElement("span"), icon, "\u00a0", check);
 +  }
-+  const version = "1.1.44";
++  const version = "1.1.45";
 +  line.dataset.dhcp = version;
 +  const installed = new URLSearchParams(line.dataset);
 +  line.firstElementChild.textContent = "\u00a0\u00a0Patch: v" + version;
@@ -1998,10 +1998,10 @@ index 27adb7b..4ea7886 100644
 +  }, close);
  });
 diff --git a/settings-dhcp.lp b/settings-dhcp.lp
-index 1cbc347..f115eb6 100644
+index 1cbc347..6241285 100644
 --- a/settings-dhcp.lp
 +++ b/settings-dhcp.lp
-@@ -12,14 +12,146 @@ mg.include('scripts/lua/header_authenticated.lp','r')
+@@ -12,14 +12,147 @@ mg.include('scripts/lua/header_authenticated.lp','r')
  -- Page title and level selector
  PageTitle = "DHCP Settings"
  mg.include('scripts/lua/settings_header.lp','r')
@@ -2134,6 +2134,7 @@ index 1cbc347..f115eb6 100644
 +    :is(#DHCPLeasesTable,#StaticDHCPTable) > tbody > tr > td.lease-activity { height: 28px; }
 +    #StaticDHCPTable .edit-lease-groups, #StaticDHCPTable .lease-toggle { width: auto; }
 +    #StaticDHCPTable.mac-collapsed td.static-hwaddr:not([contenteditable]) .lease-mac-value { display: none; }
++    [data-configkeys="dhcp.hosts"] > :is(.expert-warning, .restart-warning) { display: none; }
 +    #dhcp-range-summary, #dhcp-gateway-summary { float: right; margin-left: .6em; font-variant-numeric: tabular-nums; }
 +    details[open] > summary #dhcp-range-summary { display: none; }
 +</style>
@@ -2151,7 +2152,7 @@ index 1cbc347..f115eb6 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -84,13 +216,13 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -84,13 +217,13 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2169,7 +2170,7 @@ index 1cbc347..f115eb6 100644
              <div class="box-body">
                  <div class="row">
                      <div class="col-md-12">
-@@ -131,30 +263,32 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -131,30 +264,32 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2213,7 +2214,7 @@ index 1cbc347..f115eb6 100644
                                  </tr>
                              </thead>
                              <tbody>
-@@ -163,33 +297,46 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -163,33 +298,46 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
@@ -2279,7 +2280,7 @@ index 1cbc347..f115eb6 100644
                  <div class="row">
                      <div class="col-xs-12">
                          <label>Description:</label>
-@@ -210,7 +357,7 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -210,7 +358,7 @@ mg.include('scripts/lua/settings_header.lp','r')
                          <br>
                          <div class="dhcp-hosts-wrapper mb-4">
                              <div id="dhcp-hosts-lines" class="line-numbers" aria-hidden="true"></div>
@@ -2288,7 +2289,7 @@ index 1cbc347..f115eb6 100644
                          </div>
                      </div>
                      <div class="col-xs-12 col-md-6">
-@@ -251,13 +398,24 @@ mg.include('scripts/lua/settings_header.lp','r')
+@@ -251,13 +399,24 @@ mg.include('scripts/lua/settings_header.lp','r')
                      </div>
                  </div>
              </div>
