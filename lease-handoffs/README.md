@@ -16,7 +16,7 @@ If the monitor stops, the DHCP charts show standard per-IP counts with a notice.
 
 ## Docker install
 
-Choose address history with Pi-hole's built-in web server, or add guarded saves with Nginx. Both choices run in the same Pi-hole container. [Single-container installation](docker/README.md)
+Install address history and guarded saves together. The monitor, guard, and Nginx run in the same Pi-hole container. [Single-container installation](docker/README.md)
 
 ## Native install and check
 
@@ -28,18 +28,20 @@ Choose address history with Pi-hole's built-in web server, or add guarded saves 
    ```
 
 2. Locate the live `pihole.toml` and `dhcp.leases`. Confirm that the effective reservations match `dhcp.hosts`. Create a private state directory outside the Pi-hole config volume. Give the service user ownership and mode 0700. For upgrades, stop both services and copy their state there before restarting.
-3. Install `checkpoint.py` beside `worker.py`. Run the monitor with Python 3.11 or later. Mount the config directory read-only at `/config`. Create a separate publication directory outside the config volume. Give the monitor write access and the Pi-hole web service read access. For the guard overlay, mount this directory read-only in Pi-hole at `/run/pihole-lease-handoffs`. For the history-only overlay, use `/etc/pihole/lease-handoffs` as the read-only mount destination. Start the monitor at boot.
+3. Install `checkpoint.py` beside `worker.py`. Run the monitor with Python 3.11 or later. Mount the config directory read-only at `/config`. Create a separate publication directory outside the config volume. Give the monitor write access and the Pi-hole web service read access. Make the publication directory available to the Pi-hole web service at `/run/pihole-lease-handoffs`. Start the monitor at boot.
 4. On a dedicated Linux device or VM, use the included systemd service. Adjust its paths and IDs first.
 
-5. For a guarded install, finish the [writer and proxy setup](GUARD.md) before deploying the page. Keep private state outside the Pi-hole config directory. Mount the public directory separately at `/publish` and set `HANDOFF_PUBLISH=/publish`. Verify that `view.txt` updates after recreating the Pi-hole container. Open a filtered Query Log. For a pending move, check the waiting message and the MAC on the next DHCP lease. The monitor keeps up to 91 days of intervals. Pi-hole controls query retention.
+5. Finish the [writer and proxy setup](GUARD.md) before deploying the page. Set `HANDOFF_PUBLISH` to the publication path inside the monitor. Verify that `view.txt` updates after restarting the services. Open a filtered Query Log. For a pending move, check the waiting message and the MAC on the next DHCP lease. The monitor keeps up to 91 days of intervals. Pi-hole controls query retention.
 
 ## Update or undo
 
-Keep the exact feature patch and the base patch revisions with the install record. Reverse the feature patch in staging before you change either base patch. Reapply the matching feature patch after the base update. If any check fails, keep the installed files in place.
+Keep both overlay revisions and the base patch revisions in the install record. Review interrupted saves and pending moves first. In staging, reverse the guard overlay and then the history overlay. For an update, reapply both after the base update. If any check fails, keep the installed files in place.
 
 ```sh
+git apply --reverse --check /path/to/installed/lease-handoffs/guard-web.patch
+git apply --reverse /path/to/installed/lease-handoffs/guard-web.patch
 git apply --reverse --check /path/to/installed/lease-handoffs/web.patch
 git apply --reverse /path/to/installed/lease-handoffs/web.patch
 ```
 
-Deploy the restored web files. Remove the added `lease-handoffs.lp` endpoint. Stop and disable the monitor. The private state directory can stay in place for a later reinstall. Keep it out of source control.
+Deploy the restored web files and remove the added `scripts/js/reservation-ui.js` script. Restore the previous web listener and proxy settings as part of the same change. Stop and disable the writer and monitor. Keep the private state directory for a later reinstall. Keep it out of source control.

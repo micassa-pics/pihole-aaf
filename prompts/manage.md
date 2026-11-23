@@ -15,8 +15,7 @@ Add optional features as needed.
 | Feature | What it adds | What it needs |
 | --- | --- | --- |
 | Group pause | Pause blocking for selected groups or one IP address. Restore blocking when the timer ends. | A host service. You can add it independently of the page patches. |
-| Address history | Follow a device's DNS history when its IPv4 address changes. | The DHCP and Query Log patches, a lease monitor, and persistent state. On Docker, FTL still serves the Admin UI directly. |
-| Guarded reservation saves | Check for conflicting edits and record saves for recovery. | Address history. On Docker, the guard and Nginx run inside the same Pi-hole container. Select this option to add Nginx. |
+| Address history and guarded saves | Follow a device's DNS history across IPv4 address changes. Check for conflicting reservation edits and record saves for recovery. | The DHCP and Query Log patches and persistent state. On Docker, the monitor, guard, and Nginx run inside the same Pi-hole container. |
 
 ## Actions
 
@@ -31,18 +30,16 @@ Ask which pages I want. Offer Dashboard, DHCP, Query Log, or any combination.
 Ask whether I want the group pause picker. For that option, follow
 group-pause/README.md at the verified commit. Check the worker and loader separately.
 
-Ask whether I want address history. This option needs DHCP and Query Log.
-Follow lease-handoffs/README.md at the verified commit. Check the worker
-and web.patch separately. Reverse the handoff patch in staging before
-checking or updating either base patch.
-
-If I choose address history, ask whether I want guarded reservation saves.
-Add the guard only if I choose it. On Docker, add Nginx inside the same
-Pi-hole container. With address history alone, keep Pi-hole's built-in
-web listener. For the guard, follow lease-handoffs/GUARD.md. Check the
-writer, state, proxy route, UI script, and guard-web.patch. Apply the
-guard overlay last. Reverse it first. Preserve the existing LAN, TLS,
-and authentication rules. Check DNS and the Admin URL after deployment.
+Ask whether I want address history and guarded saves. Offer them as one
+optional choice. This choice needs DHCP and Query Log. On Docker, it
+adds the monitor, guard, and Nginx inside the same Pi-hole container.
+Follow lease-handoffs/README.md and lease-handoffs/GUARD.md at the
+verified commit. Check the monitor, writer, state, proxy route, UI script,
+and both overlays. Report any older install that contains only the monitor.
+Apply web.patch before guard-web.patch. Reverse them in the opposite
+order before checking, updating, or removing either base patch in staging.
+Preserve the existing LAN, TLS, and authentication rules. Check DNS and
+the Admin URL after deployment.
 
 Ask which action I want. Offer Check only, Install/update, or Undo to stock.
 Use the choices I already gave you. Confirm the selection before you
@@ -69,7 +66,16 @@ webhome, and any reverse-proxy prefix.
 Find where to make a lasting change:
 - Device, VM, or LXC: Find the files in the OS that serves Pi-hole.
 - Docker, Podman, Compose, or NAS app: Identify the service, image,
-  and mounts. Package Docker changes in the Pi-hole image. Run the patch processes in that same container. If I selected DHCP and Query Log, use the appropriate example in lease-handoffs/docker/README.md. For page-only installs with a different selection, apply just the selected page patches to the image. If I selected the guard, add its Compose override and set the exact admin origins and allowed LAN addresses. Record the existing FTL web listener before changing it. Restore that listener when removing the guard. Keep the existing TLS and network rules. Only propose a second container if you verify a technical requirement that prevents this design. Explain the requirement first. A mount for /etc/pihole alone does not save web files.
+  and mounts. Package Docker changes in the Pi-hole image. Run the patch
+  processes in that same container. If I selected DHCP and Query Log, use
+  the example in lease-handoffs/docker/README.md. For other page choices,
+  apply the selected page patches to the image. If I selected address
+  history and guarded saves, include both Compose overrides. Set the exact
+  admin origins and allowed LAN addresses. Record the existing FTL web
+  listener before changing it. Restore it when removing the bundle.
+  Preserve the existing TLS and network rules. A mount for /etc/pihole
+  alone does not save web files. Propose a second container only if you
+  verify a technical requirement. Explain the requirement first.
 - Kubernetes, Helm, GitOps, or another managed system: Find the
   deployment definition. Identify each replica that serves the UI.
 

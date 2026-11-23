@@ -46,9 +46,8 @@ Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface.
 - Edit hostnames and groups in place. Use **Save & Apply** only for deletions.
 - Tap **VND**, **MAC**, or **CID** to show or hide that column in both tables.
 - Check lease time remaining and DNS activity for the past 24 hours.
-- Follow a device's query history when its IP changes. The optional monitor matches the DHCP lease by MAC. [Address handoffs](lease-handoffs/README.md)
-- On Docker, the handoff monitor and reservation guard run inside the Pi-hole container. [Docker setup](lease-handoffs/docker/README.md)
-- The optional reservation guard prevents a second browser from changing a device during its move. [Reservation guard](lease-handoffs/GUARD.md)
+- Add address history and guarded saves together. Follow a device's query history when its IP changes. Guard reservation edits against conflicts. This option needs DHCP and Query Log. [Address history and guarded saves](lease-handoffs/README.md)
+- On Docker, the monitor, guard, and Nginx run inside the same Pi-hole container. [Docker setup](lease-handoffs/docker/README.md)
 - **Reorderable columns.** Drag a header to move it. Your browser remembers the order.
 
 [![Full DHCP page with eight active leases, eight static reservations, the collapsed lease range, and the sidebar update checker. Open the interactive comparison.](assets/dhcp-overview.jpg)](https://micassa-pics.github.io/pihole-awesome-a-fyer/#dhcp)
