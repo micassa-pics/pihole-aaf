@@ -6,8 +6,8 @@ Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface.
 
 ## Install, update, or Undo to Stock
 
-- Choose the pages, optional features, and action. See the [install options](prompts/manage.md#install-options).
-- Copy the [setup prompt](prompts/manage.md) into your AI assistant. Enter your Pi-hole address and SSH command.
+- Copy the [setup prompt](prompts/manage.md) into your AI assistant. Choose the action first.
+- Choose the pages and features. Enter your Pi-hole address and SSH command. [Install options](prompts/manage.md#install-options)
 - After a Pi-hole update, run **Check only** to see if you need to reapply the patches.
 
 ## Optional group pause

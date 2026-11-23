@@ -1,5 +1,13 @@
 # Manage Pi-hole awesome-a-fyer
 
+## Actions
+
+Choose an action first.
+
+- **Install or update** applies the selected changes. It skips current patches and keeps a recovery copy.
+- **Check only** compares installed files and versions with the published patches. It leaves Pi-hole unchanged.
+- **Undo to Stock** restores the selected pages to stock and removes the selected optional features. Select all installed patches and features to return the full installation to stock. The prompt checks dependencies before deployment.
+
 ## Install options
 
 **The Full Monty** installs or updates Dashboard, DHCP, Query Log, group pause, and the address history and guarded saves bundle. Give the assistant the target and access details. It backs up, installs, and checks the result without routine prompts. This choice allows a brief restart if needed.
@@ -19,32 +27,30 @@ Add optional features as needed.
 | Group pause | Pause blocking for selected groups or one IP address. Restore blocking when the timer ends. | A host service. You can add it independently of the page patches. |
 | Address history and guarded saves | Follow a device's DNS history across IPv4 address changes. Check for conflicting reservation edits and record saves for recovery. | The DHCP and Query Log patches and persistent state. On Docker, the monitor, guard, and Nginx run inside the same Pi-hole container. |
 
-## Actions
-
-- **Check only** compares installed files and versions with the published patches. It leaves Pi-hole unchanged.
-- **Install or update** applies the selected changes. It skips current patches and keeps a recovery copy.
-- **Undo to Stock** restores the selected pages to stock and removes the selected optional features. Select all installed patches and features to return the full installation to stock. The prompt checks dependencies before deployment.
-
 Copy the entire block below into your AI assistant. Provide your Pi-hole Admin URL and how to reach the device.
 
 ```text
-Start by offering The Full Monty. Explain that it installs or updates
-Dashboard, DHCP, Query Log, group pause, and address history and guarded
-saves without routine prompts. A short DNS or DHCP interruption can occur
-if the install needs a restart.
+If I have not already chosen an action, ask which action I want first.
+- Install or update. Apply the selected changes and keep a recovery copy.
+- Check only. Compare installed and published versions without changes.
+- Undo to Stock. Restore selected pages and remove selected optional features.
 
-If I choose The Full Monty, select all features and set the action to
-Install or update. Skip the individual choices and action menu. Use the
+For Install or update, offer The Full Monty or a custom install. Explain
+that The Full Monty installs all pages and optional features without
+routine prompts. A short DNS or DHCP interruption can occur if the install
+needs a restart. For Check only or Undo to Stock, ask which features to
+check or remove. Offer a choice to include all features.
+
+If I choose The Full Monty, select all features and proceed with Install
+or update. Skip the individual feature choices. Use the
 target and access details I already gave you. Ask only for missing details
 or a blocker you cannot resolve. Then run the backup, install, and checks
 without routine approval prompts. Check compatibility for all features
 before changing the live instance. Report any blocker that prevents the
 full install. Restore the previous deployment if the change fails.
 
-If I choose a custom install, let me select any combination. Briefly
-explain each choice.
-
-Ask which pages I want.
+When I choose individual features, let me select any combination.
+Briefly explain each page choice.
 - Dashboard. Collapse sections and see query and client totals.
 - DHCP. Manage active leases and static reservations in separate tables.
 - Query Log. Group repeated queries and filter by blocking status.
@@ -67,10 +73,6 @@ order before checking, updating, or removing either base patch in staging.
 Preserve the existing LAN, TLS, and authentication rules. Check DNS and
 the Admin URL after deployment.
 
-For a custom selection, ask which action I want.
-- Check only. Compare installed and published versions.
-- Install or update. Apply the selected changes and keep a recovery copy.
-- Undo to Stock. Restore selected pages and remove selected optional features.
 Use the choices I already gave you. Confirm a custom selection before
 you download files or connect to the device. Work on the selected features.
 Check only uses read-only checks. Before Undo to Stock, check which installed
