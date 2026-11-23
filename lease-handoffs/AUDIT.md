@@ -18,6 +18,9 @@ The audit started at commit `255304b`. It covered Pi-hole Web v6.6.1 on Docker w
 
 ## Other checks
 
+- A later guard test used eight independent HTTP clients with one starting revision. One save succeeded, seven received conflicts, and retrying the winning request left the upstream write count at one. A local API fixture checked missing sessions, CSRF rejection, and the guard's origin and header checks. The passwordless LAN deployment was verified separately.
+- Regression coverage includes DHCP disabled, duplicate IP repair, denied writes and a monitor outage during deletion. The guard uses the monitor's copy of the configured rules to distinguish a recorded rule from an observed DHCP lease.
+
 - Eight worker tests passed. They cover expiry, address reuse, ambiguous leases, the on-disk lease format, retention, clock rollback, a saved-state reload, and successive static moves.
 - The web patch applied, reversed, and reapplied against the stock Web v6.6.1 files with the published DHCP and Query Log patches. Both modified scripts passed the JavaScript syntax check.
 - A simulated completed handoff used live DNS data. The raw API count, grouped chart bins, and unique individual rows all returned 76 queries for the same ten-minute window.

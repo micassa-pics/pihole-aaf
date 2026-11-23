@@ -65,7 +65,8 @@ class HandoffTest(unittest.TestCase):
             (config / "dhcp.leases").write_text(
                 f"100 {mac} 192.0.2.1 expired *\n200 {mac} 192.0.2.2 printer *\n"
                 f"0 {other} 192.0.2.2 other *\n")
-            leases, reservations, macs, ips = snapshot(config, 100)
+            leases, reservations, macs, ips, _, enabled = snapshot(config, 100)
+            self.assertTrue(enabled)
             self.assertEqual(leases, {})
             self.assertEqual(reservations, {mac:"192.0.2.2"})
             self.assertEqual(macs, {mac, other})

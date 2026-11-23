@@ -112,6 +112,35 @@ class GuardTests(unittest.TestCase):
         self.monitor["observed_leases"][mac]=["192.0.2.5",110]
         self.assertNotIn(mac,self.call()["locks"])
 
+    def test_repair_conflicting_rules_after_monitor_reads_them(self):
+        self.api.rows=[row(MAC,1),row(OTHER,1)]
+        self.j.db.execute("DELETE FROM journal")
+        base=self.call()
+        self.monitor.update(reservations={},host_rules=base["hosts"][:])
+        v=self.call(self.save([row(MAC,2),row(OTHER,1)],base))
+        self.assertIn(MAC,v["locks"])
+        self.assertEqual(self.api.writes,1)
+
+    def test_disabled_dhcp_requires_matching_config_checkpoint(self):
+        self.monitor.update(dhcp_enabled=False,reservations={},host_rules=self.api.rows[:])
+        self.call(self.save([row(MAC,2),row(OTHER,8)]))
+        self.monitor["last"]=101
+        self.assertIn(MAC,self.call()["locks"])
+        self.monitor["host_rules"]=self.api.rows[:]
+        self.assertNotIn(MAC,self.call()["locks"])
+
+    def test_outage_cannot_bypass_a_monitor_only_lock(self):
+        self.monitor=None
+        with self.assertRaises(Problem):
+            self.call(self.save([row(OTHER,8)]))
+        self.assertEqual(self.api.writes,0)
+
+    def test_denied_api_write_does_not_leave_intent(self):
+        with patch.object(self.api,"write",side_effect=Problem("Denied",403)), self.assertRaises(Problem):
+            self.call(self.save([row(MAC,2),row(OTHER,8)]))
+        self.assertIsNone(self.j.load()["intent"])
+        self.assertEqual(self.call()["locks"],{})
+
 
 if __name__ == "__main__":
     unittest.main()

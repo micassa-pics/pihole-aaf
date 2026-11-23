@@ -26,6 +26,9 @@ def snapshot(config, now):
     with (config / "pihole.toml").open("rb") as f:
         dhcp = tomllib.load(f)["dhcp"]
     leases, reservations = [], []
+    hosts = dhcp.get("hosts", [])
+    if not dhcp["active"]:
+        return {}, {}, set(), set(), hosts, False
     for line in (config / "dhcp.leases").read_text().splitlines():
         fields = line.lower().split()
         if not fields or fields[0] == "duid":
@@ -37,20 +40,18 @@ def snapshot(config, now):
         expires, mac, ip = fields[:3]
         if MAC.fullmatch(mac) and (int(expires) == 0 or int(expires) > now):
             leases.append((mac, str(ipaddress.IPv4Address(ip))))
-    for host in dhcp.get("hosts", []):
+    for host in hosts:
         fields = [x.strip().lower() for x in host.split(",")]
         macs = [x for x in fields if MAC.fullmatch(x)]
         ips = [str(ipaddress.IPv4Address(x)) for x in fields if re.fullmatch(r"(?:\d+\.){3}\d+", x)]
         if len(macs) == len(ips) == 1:
             reservations.append((macs[0], ips[0]))
-    if not dhcp["active"]:
-        return {}, {}, set(), set()
     owners = unique_pairs(leases)
     conflicts = [(m, ip) for m, ip in leases if owners.get(m) != ip]
-    return owners, unique_pairs(reservations), {m for m, _ in conflicts}, {ip for _, ip in conflicts}
+    return owners, unique_pairs(reservations), {m for m, _ in conflicts}, {ip for _, ip in conflicts}, hosts, True
 
 
-def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()):
+def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=(), hosts=None, enabled=True):
     windows = state.setdefault("windows", {})
     moves = state.setdefault("moves", {})
     previous = state.get("reservations", {})
@@ -119,6 +120,9 @@ def update(state, now, leases, reservations, ambiguous_macs=(), ambiguous_ips=()
     state["observed_leases"] = {m:v for m,v in observed.items() if v[1] >= now - KEEP}
     state["active"] = list(active)
     state["last"] = now
+    if hosts is not None:
+        state["host_rules"] = hosts
+        state["dhcp_enabled"] = enabled
     return "\n".join(result) + "\n"
 
 

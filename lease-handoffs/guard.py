@@ -117,11 +117,14 @@ def reconcile(s, current, monitor, now):
                 s["locks"][key] = {"kind": "review", "ip": ip_of(actual.get(key, []))}
     s["known"] = actual
     if monitor:
+        recorded = groups(monitor.get("host_rules", []))
         for key, lock in list(s["locks"].items()):
             if lock["kind"] == "review" or monitor["last"] <= lock["since"]:
                 continue
             target = lock["ip"]
-            if monitor["reservations"].get(key) != target or key in monitor["pending"]:
+            recorded_ip = (monitor["reservations"].get(key) if monitor.get("dhcp_enabled", True)
+                           else ip_of(recorded.get(key, [])))
+            if recorded_ip != target or key in monitor["pending"]:
                 continue
             if lock["kind"] == "lease":
                 observed = monitor.get("observed_leases", {}).get(key)
@@ -196,14 +199,20 @@ def operate(journal, api, monitor, req):
             raise Problem("Another editor changed this device. Review the current row before saving.")
         if action == "save" and key in view["locks"]:
             raise Problem("This device already has a pending move. Review the current row.")
+        if action == "save" and MAC.fullmatch(key) and not monitor:
+            raise Problem("The lease monitor has no current checkpoint.",503)
         old_ip, new_ip = ip_of(base.get(key, [])), ip_of(desired.get(key, []))
         if action != "review" and MAC.fullmatch(key) and new_ip and new_ip != old_ip:
             if not monitor:
                 raise Problem("The lease monitor has no current checkpoint.",503)
-            if action != "cancel" and monitor["reservations"].get(key) != old_ip:
+            if "host_rules" in monitor:
+                caught_up = groups(monitor["host_rules"]).get(key) == base.get(key)
+            else:
+                caught_up = monitor["reservations"].get(key) == old_ip
+            if action != "cancel" and not caught_up:
                 raise Problem("Waiting for the monitor to record the current reservation.")
             observed = monitor.get("observed_leases", {}).get(key)
-            kind = "lease" if not old_ip and observed and observed[0] != new_ip else "checkpoint"
+            kind = "lease" if monitor.get("dhcp_enabled", True) and not old_ip and observed and observed[0] != new_ip else "checkpoint"
             locks[key] = {"kind":kind, "since":max(now,monitor["last"]), "ip":new_ip, "before":base.get(key,[])}
     if action == "save" and before != after and not keys and current != before:
         raise Problem("The list changed before the reorder. Review the current reservations.")
@@ -274,6 +283,8 @@ class API:
 
 
 class Handler(BaseHTTPRequestHandler):
+    timeout = 15
+
     def log_message(self,*args):
         pass
 

@@ -5,6 +5,7 @@ The DHCP page sends reservation edits to a private writer. The writer checks the
 The writer records each request in SQLite before it sends the change. Each request has an ID. A repeated request returns its recorded result. If Pi-hole restarts during a save, the writer reads the live rules before it settles the request. An uncertain outcome requires **Review change**. The browser can check a receipt without sending another save.
 
 - A static move stays locked until the monitor records the new reservation.
+- With DHCP off, the monitor can still confirm a saved static rule. It records no lease activity during that interval. You can also correct duplicate IP rules once the monitor has read the conflicting configuration.
 - A lease promotion waits for the same MAC at its reserved IP.
 - A conflicting browser refreshes the rows and shows the unsaved draft below the table controls. Use **Cancel move** to restore the previous rule. For a new reservation, cancellation removes the rule.
 - Direct API clients, older open pages and direct config edits can bypass the guard. Reload open DHCP pages after deployment. The writer detects observed outside changes and marks affected entries for review. An outside change and reversal between observations can go unseen.
