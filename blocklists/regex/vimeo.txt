@@ -1,0 +1,2 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+^[0-9]+vod-adaptive\.akamaized\.net$

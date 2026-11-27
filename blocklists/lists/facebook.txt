@@ -1,0 +1,17 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+fbcdn-a.akamaihd.net
+||aboutfacebook.com^
+||facebook.com^
+||facebook.design^
+||facebook.net^
+||facebook.org^
+||fb.com^
+||fb.gg^
+||fb.me^
+||fb.watch^
+||fbcdn.com^
+||fbcdn.net^
+||fbsbx.com^
+||fbsbx.net^
+||fburl.com^
+||fbwat.ch^

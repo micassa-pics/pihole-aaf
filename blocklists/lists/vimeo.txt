@@ -1,0 +1,10 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+||livestream.com^
+||vhx.tv^
+||vimeo.com^
+||vimeo.fr^
+||vimeobusiness.com^
+||vimeocdn.com^
+||vimeogoods.com^
+||vimeoondemand.com^
+||vimeostatus.com^

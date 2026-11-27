@@ -1,0 +1,4 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+www.api.prod.nbcuott.com
+www.peacocktv.com.edgesuite.net
+||peacocktv.com^

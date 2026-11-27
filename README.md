@@ -4,6 +4,8 @@
 
 Choose the Dashboard, Query Log, or DHCP patch for the Pi-hole v6 web interface. Install any combination.
 
+[DNS service blocklists for Pi-hole and Logstalgia](blocklists/README.md)
+
 ## Install, update, or Undo to Stock
 
 - Copy the [setup prompt](prompts/manage.md) into your AI assistant. Choose the action first.

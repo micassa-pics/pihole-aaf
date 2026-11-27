@@ -1,0 +1,4 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+^cdn[0-9]-epicgames-[0-9]+\.file\.myqcloud\.com$
+^epicgames-download[0-9]-[0-9]+\.file\.myqcloud\.com$
+^epicgames-download[0-9]\.akamaized\.net$

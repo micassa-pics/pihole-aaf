@@ -1,0 +1,10 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+impala-media-production.s3.amazonaws.com
+||sc-cdn.net^
+||sc-gw.com^
+||sc-static.net^
+||snap-dev.net^
+||snap.com^
+||snapads.com^
+||snapchat.com^
+||snapkit.co^

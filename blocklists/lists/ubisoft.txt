@@ -1,0 +1,7 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+ubisoft-orbit-savegames.s3.amazonaws.com
+ubisoft-uplay-savegames.s3.amazonaws.com
+||ubi.com^
+||ubisoft.com^
+||ubisoftconnect.com^
+||uplay.com^

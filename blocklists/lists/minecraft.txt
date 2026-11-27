@@ -1,0 +1,6 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+||minecraft-services.net^
+||minecraft.net^
+||minecraftservices.com^
+||minecraftshop.com^
+||mojang.com^

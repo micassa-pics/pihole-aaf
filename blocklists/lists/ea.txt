@@ -1,0 +1,19 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+cloudsync-prod.s3.amazonaws.com
+origin-a.akamaihd.net
+||apexlegends.com^
+||battlefield.com^
+||battlelog.com^
+||ea.com^
+||eaaccess.com^
+||eaplay.com^
+||easports.com^
+||easports.jp^
+||eastore.com^
+||electronicarts.com^
+||electronicarts.fr^
+||origin.com^
+||origin.tv^
+||playapex.com^
+||thesims.com^
+||tnt-ea.com^

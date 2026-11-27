@@ -1,0 +1,12 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+||fast.com^
+||netflix.ca^
+||netflix.com.edgesuite.net^
+||netflix.com^
+||netflix.net^
+||nflxext.com^
+||nflximg.com^
+||nflximg.net^
+||nflxsearch.net^
+||nflxso.net^
+||nflxvideo.net^

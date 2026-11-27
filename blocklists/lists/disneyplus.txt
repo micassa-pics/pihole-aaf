@@ -1,0 +1,11 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+disneyplus.com.ssl.sc.omtrdc.net
+www.disneyplus.com.edgekey.net
+||bamgrid.com^
+||disney-plus.net^
+||disneyplus.bn5x.net^
+||disneyplus.com^
+||disneystreaming.com^
+||dssott.com^
+||starott.com^
+||starplus.com^

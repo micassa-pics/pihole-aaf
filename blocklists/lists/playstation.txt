@@ -1,0 +1,6 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+||playstation.com^
+||playstation.net^
+||playstation^
+||playstationnetwork.com^
+||sonyentertainmentnetwork.com^

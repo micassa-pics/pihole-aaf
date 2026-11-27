@@ -1,0 +1,18 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+hbo.com.c.footprint.net
+hbo.com.edgesuite.net
+hbo.map.fastly.net
+hbomax-images.warnermediacdn.com
+hbomaxdash.s.llnwi.net
+||h264.io^
+||hbo.com^
+||hbo^
+||hbogo.com^
+||hbogoasia.com^
+||hbolacontent.net^
+||hbomax.com^
+||hbomax.eu^
+||hbomaxcdn.com^
+||hbonow.com^
+||max.com^
+||maxgo.com^

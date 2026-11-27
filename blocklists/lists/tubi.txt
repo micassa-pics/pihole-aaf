@@ -1,0 +1,5 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+||tubi.io^
+||tubi.tv^
+||tubi.video^
+||tubitv.com^

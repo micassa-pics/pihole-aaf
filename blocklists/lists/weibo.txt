@@ -1,0 +1,12 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+||sinaimg.cn^
+||sinaimg.com^
+||t.cn^
+||wbimg.cn^
+||wbimg.com^
+||weibo.cn^
+||weibo.com.cn^
+||weibo.com^
+||weibo^
+||weibocdn.com^
+||xn--9krt00a^

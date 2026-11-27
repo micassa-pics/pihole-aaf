@@ -1,0 +1,20 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+twitter.map.fastly.net
+||ads-twitter.com^
+||cms-twdigitalassets.com^
+||t.co^
+||tweetdeck.com^
+||twimg.com^
+||twitter.biz^
+||twitter.com^
+||twitter.jp^
+||twittercommunity.com^
+||twitterflightschool.com^
+||twitterinc.com^
+||twitteroauth.com^
+||twitterstat.us^
+||twtrdns.net^
+||twttr.com^
+||twttr.net^
+||twvid.com^
+||x.com^

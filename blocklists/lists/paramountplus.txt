@@ -1,0 +1,7 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+cbsi.live.ott.irdeto.com
+paramountplus.map.fastly.net
+||cbsaavideo.com^
+||cbsivideo.com^
+||paramountplus.com^
+||pplusstatic.com^

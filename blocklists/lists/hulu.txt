@@ -1,0 +1,11 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+hulu.playback.edge.bamgrid.com
+||hulu.com^
+||hulu.jp^
+||hulu.tv^
+||hulu.us^
+||huluad.com^
+||huluapp.com^
+||huluplus.com^
+||hulustream.com^
+||hulutv.com^

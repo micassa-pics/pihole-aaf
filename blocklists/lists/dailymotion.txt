@@ -1,0 +1,6 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+d2siujj6mte9cd.cloudfront.net
+||dai.ly^
+||dailymotion.com^
+||dm-event.net^
+||dmcdn.net^

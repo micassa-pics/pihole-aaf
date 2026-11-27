@@ -1,0 +1,26 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+lolstatic-a.akamaihd.net
+||leagueoflegends.ca^
+||leagueoflegends.cn^
+||leagueoflegends.co.kr^
+||leagueoflegends.com^
+||leagueoflegends.kr^
+||leagueoflegends.net^
+||lol-europe.com^
+||lolesports.com^
+||lolstatic.com^
+||lolusercontent.com^
+||playvalorant.com^
+||pvp.net^
+||rgpub.io^
+||riot.com^
+||riot.net^
+||riotcdn.net^
+||riotforgegames.com^
+||riotgames.co.kr^
+||riotgames.com^
+||riotgames.info^
+||riotgames.jp^
+||riotgames.net^
+||riotgames.tv^
+||rstatic.net^

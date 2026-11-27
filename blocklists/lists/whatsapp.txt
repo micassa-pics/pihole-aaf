@@ -1,0 +1,5 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+||wa.me^
+||whatsapp.com^
+||whatsapp.net^
+||whatsappbrand.com^

@@ -1,0 +1,13 @@
+# Generated from ../service-domains.json. See ../README.md for sources and license.
+egdownload.fastly-edge.com
+fortnite-vod.akamaized.net
+||eac-cdn.com^
+||easy.ac^
+||easyanticheat.net^
+||epicgames.com^
+||epicgames.dev^
+||epicgamescdn.com^
+||fab.com^
+||fortnite.com^
+||unrealengine.com^
+||unrealtournament.com^
